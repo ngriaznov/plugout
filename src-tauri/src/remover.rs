@@ -30,19 +30,37 @@ pub fn remove_bundles(
         .map(|b| b.path.clone())
         .collect();
 
-    let user_result = if user_paths.is_empty() { Ok(()) } else { trasher.trash(&user_paths) };
-    let sys_result = if sys_paths.is_empty() { Ok(()) } else { trasher.trash_privileged(&sys_paths, None) };
+    let user_result = if user_paths.is_empty() {
+        Ok(())
+    } else {
+        trasher.trash(&user_paths)
+    };
+    let sys_result = if sys_paths.is_empty() {
+        Ok(())
+    } else {
+        trasher.trash_privileged(&sys_paths, None)
+    };
 
     bundles
         .iter()
         .map(|b| {
-            let outcome = if is_system_path(&b.path, home) { &sys_result } else { &user_result };
+            let outcome = if is_system_path(&b.path, home) {
+                &sys_result
+            } else {
+                &user_result
+            };
             match outcome {
                 Ok(()) => RemovalResult {
-                    id: b.id.clone(), path: b.path.clone(), status: RemovalStatus::Trashed, message: None,
+                    id: b.id.clone(),
+                    path: b.path.clone(),
+                    status: RemovalStatus::Trashed,
+                    message: None,
                 },
                 Err(e) => RemovalResult {
-                    id: b.id.clone(), path: b.path.clone(), status: RemovalStatus::Failed, message: Some(e.clone()),
+                    id: b.id.clone(),
+                    path: b.path.clone(),
+                    status: RemovalStatus::Failed,
+                    message: Some(e.clone()),
                 },
             }
         })
@@ -72,11 +90,20 @@ impl Trasher for RealTrasher {
         }
         if let Some(pkg) = forget_pkg {
             // Forgetting the receipt is best-effort cleanup; it must not fail the removal.
-            sh.push_str(&format!("pkgutil --forget {} >/dev/null 2>&1 || true; ", sh_quote(pkg)));
+            sh.push_str(&format!(
+                "pkgutil --forget {} >/dev/null 2>&1 || true; ",
+                sh_quote(pkg)
+            ));
         }
 
-        let apple = format!("do shell script \"{}\" with administrator privileges", as_escape(&sh));
-        let out = Command::new("osascript").arg("-e").arg(apple).output()
+        let apple = format!(
+            "do shell script \"{}\" with administrator privileges",
+            as_escape(&sh)
+        );
+        let out = Command::new("osascript")
+            .arg("-e")
+            .arg(apple)
+            .output()
             .map_err(|e| e.to_string())?;
         if out.status.success() {
             Ok(())
@@ -128,23 +155,39 @@ mod tests {
 
     fn bundle(path: &str, scope: Scope) -> PluginBundle {
         PluginBundle {
-            id: path.into(), name: "N".into(), vendor: "V".into(), version: "1".into(),
-            format: Format::Vst3, bundle_id: "com.v.n".into(), path: path.into(),
-            size_bytes: 1, scope, package_id: None,
+            id: path.into(),
+            name: "N".into(),
+            vendor: "V".into(),
+            version: "1".into(),
+            format: Format::Vst3,
+            bundle_id: "com.v.n".into(),
+            path: path.into(),
+            size_bytes: 1,
+            scope,
+            package_id: None,
         }
     }
 
     #[test]
     fn is_system_path_detects_library() {
-        assert!(is_system_path("/Library/Audio/Plug-Ins/VST3/X.vst3", "/Users/me"));
-        assert!(!is_system_path("/Users/me/Library/Audio/Plug-Ins/VST3/X.vst3", "/Users/me"));
+        assert!(is_system_path(
+            "/Library/Audio/Plug-Ins/VST3/X.vst3",
+            "/Users/me"
+        ));
+        assert!(!is_system_path(
+            "/Users/me/Library/Audio/Plug-Ins/VST3/X.vst3",
+            "/Users/me"
+        ));
     }
 
     #[test]
     fn user_bundles_trashed_in_one_batch() {
         let spy = SpyTrasher::default();
         let a = bundle("/Users/me/Library/Audio/Plug-Ins/VST3/A.vst3", Scope::User);
-        let b = bundle("/Users/me/Library/Audio/Plug-Ins/Components/B.component", Scope::User);
+        let b = bundle(
+            "/Users/me/Library/Audio/Plug-Ins/Components/B.component",
+            Scope::User,
+        );
         let res = remove_bundles(&[a, b], "/Users/me", &spy);
         assert!(res.iter().all(|r| r.status == RemovalStatus::Trashed));
         assert_eq!(*spy.user_calls.borrow(), 1); // single batched Trash call
@@ -156,7 +199,10 @@ mod tests {
     fn system_bundles_trashed_in_one_privileged_batch() {
         let spy = SpyTrasher::default();
         let a = bundle("/Library/Audio/Plug-Ins/VST3/A.vst3", Scope::System);
-        let b = bundle("/Library/Audio/Plug-Ins/Components/B.component", Scope::System);
+        let b = bundle(
+            "/Library/Audio/Plug-Ins/Components/B.component",
+            Scope::System,
+        );
         let res = remove_bundles(&[a, b], "/Users/me", &spy);
         assert!(res.iter().all(|r| r.status == RemovalStatus::Trashed));
         assert_eq!(*spy.priv_calls.borrow(), 1); // single admin prompt for both

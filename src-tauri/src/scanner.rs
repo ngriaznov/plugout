@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use crate::model::{Format, PluginBundle, Scope};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
 pub struct PluginMeta {
@@ -10,18 +10,29 @@ pub struct PluginMeta {
 }
 
 pub fn parse_info_plist(path: &Path) -> PluginMeta {
-    let Ok(value) = plist::Value::from_file(path) else { return PluginMeta::default() };
-    let Some(dict) = value.as_dictionary() else { return PluginMeta::default() };
+    let Ok(value) = plist::Value::from_file(path) else {
+        return PluginMeta::default();
+    };
+    let Some(dict) = value.as_dictionary() else {
+        return PluginMeta::default();
+    };
     let get = |k: &str| dict.get(k).and_then(|v| v.as_string()).map(str::to_string);
 
-    let name = get("CFBundleName").or_else(|| get("CFBundleDisplayName")).unwrap_or_default();
+    let name = get("CFBundleName")
+        .or_else(|| get("CFBundleDisplayName"))
+        .unwrap_or_default();
     let bundle_id = get("CFBundleIdentifier").unwrap_or_default();
     let version = get("CFBundleShortVersionString")
         .or_else(|| get("CFBundleVersion"))
         .unwrap_or_default();
     let vendor = audio_component_vendor(dict).unwrap_or_else(|| vendor_from_bundle_id(&bundle_id));
 
-    PluginMeta { name, vendor, version, bundle_id }
+    PluginMeta {
+        name,
+        vendor,
+        version,
+        bundle_id,
+    }
 }
 
 fn audio_component_vendor(dict: &plist::Dictionary) -> Option<String> {
@@ -39,19 +50,27 @@ fn audio_component_vendor(dict: &plist::Dictionary) -> Option<String> {
 fn vendor_from_bundle_id(bundle_id: &str) -> String {
     let parts: Vec<&str> = bundle_id.split('.').collect();
     let tlds = ["com", "net", "org", "io", "co", "app"];
-    let idx = if parts.len() > 1 && tlds.contains(&parts[0]) { 1 } else { 0 };
+    let idx = if parts.len() > 1 && tlds.contains(&parts[0]) {
+        1
+    } else {
+        0
+    };
     parts.get(idx).unwrap_or(&"").to_string()
 }
 
 pub fn dir_size(path: &Path) -> u64 {
-    let Ok(meta) = std::fs::symlink_metadata(path) else { return 0 };
+    let Ok(meta) = std::fs::symlink_metadata(path) else {
+        return 0;
+    };
     if meta.file_type().is_symlink() {
         return 0;
     }
     if meta.is_file() {
         return meta.len();
     }
-    let Ok(entries) = std::fs::read_dir(path) else { return 0 };
+    let Ok(entries) = std::fs::read_dir(path) else {
+        return 0;
+    };
     entries.flatten().map(|e| dir_size(&e.path())).sum()
 }
 
@@ -67,7 +86,9 @@ fn extension_for(format: Format) -> &'static str {
 
 pub fn scan_dir(dir: &Path, format: Format, scope: Scope) -> Vec<PluginBundle> {
     let want = extension_for(format);
-    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
     let mut out = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
@@ -75,8 +96,16 @@ pub fn scan_dir(dir: &Path, format: Format, scope: Scope) -> Vec<PluginBundle> {
             continue;
         }
         let meta = parse_info_plist(&path.join("Contents/Info.plist"));
-        let file_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
-        let name = if meta.name.is_empty() { file_stem } else { meta.name };
+        let file_stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_string();
+        let name = if meta.name.is_empty() {
+            file_stem
+        } else {
+            meta.name
+        };
         let path_str = path.to_string_lossy().to_string();
         out.push(PluginBundle {
             id: path_str.clone(),
@@ -107,7 +136,11 @@ pub fn plugin_locations() -> Vec<(PathBuf, Format, Scope)> {
         (s("VST"), Format::Vst2, Scope::System),
         (u("CLAP"), Format::Clap, Scope::User),
         (s("CLAP"), Format::Clap, Scope::System),
-        (PathBuf::from("/Library/Application Support/Avid/Audio/Plug-Ins"), Format::Aax, Scope::System),
+        (
+            PathBuf::from("/Library/Application Support/Avid/Audio/Plug-Ins"),
+            Format::Aax,
+            Scope::System,
+        ),
     ]
 }
 
@@ -130,10 +163,12 @@ mod tests {
     #[test]
     fn reads_name_version_bundleid() {
         let dir = tempfile::tempdir().unwrap();
-        let p = write_plist(dir.path(),
+        let p = write_plist(
+            dir.path(),
             "<key>CFBundleName</key><string>Massive</string>\
              <key>CFBundleShortVersionString</key><string>1.5.9</string>\
-             <key>CFBundleIdentifier</key><string>com.native-instruments.Massive</string>");
+             <key>CFBundleIdentifier</key><string>com.native-instruments.Massive</string>",
+        );
         let m = parse_info_plist(&p);
         assert_eq!(m.name, "Massive");
         assert_eq!(m.version, "1.5.9");
@@ -144,10 +179,12 @@ mod tests {
     #[test]
     fn vendor_from_audio_components_when_present() {
         let dir = tempfile::tempdir().unwrap();
-        let p = write_plist(dir.path(),
+        let p = write_plist(
+            dir.path(),
             "<key>CFBundleIdentifier</key><string>com.acme.x</string>\
              <key>AudioComponents</key><array><dict>\
-             <key>name</key><string>FabFilter: Pro-Q 3</string></dict></array>");
+             <key>name</key><string>FabFilter: Pro-Q 3</string></dict></array>",
+        );
         let m = parse_info_plist(&p);
         assert_eq!(m.vendor, "FabFilter");
     }
@@ -170,8 +207,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         make_bundle(dir.path(), "Alpha.vst3",
             "<key>CFBundleName</key><string>Alpha</string><key>CFBundleIdentifier</key><string>com.x.alpha</string>");
-        make_bundle(dir.path(), "Beta.component",
-            "<key>CFBundleName</key><string>Beta</string>");
+        make_bundle(
+            dir.path(),
+            "Beta.component",
+            "<key>CFBundleName</key><string>Beta</string>",
+        );
         std::fs::write(dir.path().join("notes.txt"), b"nope").unwrap();
 
         let found = scan_dir(dir.path(), Format::Vst3, Scope::User);

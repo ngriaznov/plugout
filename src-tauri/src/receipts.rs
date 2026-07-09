@@ -9,7 +9,11 @@ pub struct RealPkgUtil;
 
 impl PkgUtil for RealPkgUtil {
     fn file_info(&self, path: &str) -> Option<Vec<String>> {
-        let out = Command::new("pkgutil").arg("--file-info").arg(path).output().ok()?;
+        let out = Command::new("pkgutil")
+            .arg("--file-info")
+            .arg(path)
+            .output()
+            .ok()?;
         Some(
             String::from_utf8_lossy(&out.stdout)
                 .lines()

@@ -2,16 +2,24 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Format {
-    #[serde(rename = "AU")] Au,
-    #[serde(rename = "VST3")] Vst3,
-    #[serde(rename = "VST2")] Vst2,
-    #[serde(rename = "CLAP")] Clap,
-    #[serde(rename = "AAX")] Aax,
+    #[serde(rename = "AU")]
+    Au,
+    #[serde(rename = "VST3")]
+    Vst3,
+    #[serde(rename = "VST2")]
+    Vst2,
+    #[serde(rename = "CLAP")]
+    Clap,
+    #[serde(rename = "AAX")]
+    Aax,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Scope { User, System }
+pub enum Scope {
+    User,
+    System,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,9 +73,16 @@ mod tests {
     #[test]
     fn plugin_bundle_uses_camel_case() {
         let b = PluginBundle {
-            id: "/p".into(), name: "N".into(), vendor: "V".into(), version: "1".into(),
-            format: Format::Vst3, bundle_id: "com.v.n".into(), path: "/p".into(),
-            size_bytes: 10, scope: Scope::User, package_id: None,
+            id: "/p".into(),
+            name: "N".into(),
+            vendor: "V".into(),
+            version: "1".into(),
+            format: Format::Vst3,
+            bundle_id: "com.v.n".into(),
+            path: "/p".into(),
+            size_bytes: 10,
+            scope: Scope::User,
+            package_id: None,
         };
         let j = serde_json::to_string(&b).unwrap();
         assert!(j.contains("\"sizeBytes\":10"), "got {j}");

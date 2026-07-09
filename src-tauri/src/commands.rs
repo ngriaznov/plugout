@@ -88,10 +88,16 @@ pub async fn plugin_details(id: String) -> PluginDetails {
     // `pkgutil` takes hundreds of ms; run it off the IPC thread so the UI never stalls.
     tauri::async_runtime::spawn_blocking(move || {
         let package_id = receipts::owner_of(&id, &RealPkgUtil);
-        PluginDetails { files_to_trash: vec![id], package_id }
+        PluginDetails {
+            files_to_trash: vec![id],
+            package_id,
+        }
     })
     .await
-    .unwrap_or(PluginDetails { files_to_trash: vec![], package_id: None })
+    .unwrap_or(PluginDetails {
+        files_to_trash: vec![],
+        package_id: None,
+    })
 }
 
 #[tauri::command]
