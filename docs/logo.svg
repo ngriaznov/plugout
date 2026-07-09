@@ -1,0 +1,12 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- plugout mark: a quarter-inch jack, unplugged -->
+  <rect width="256" height="256" rx="58" fill="#141414"/>
+  <!-- tip -->
+  <rect x="116" y="40" width="24" height="34" rx="12" fill="#f0eeea"/>
+  <!-- ring -->
+  <rect x="116" y="82" width="24" height="14" rx="7" fill="#f0eeea"/>
+  <!-- sleeve -->
+  <rect x="116" y="104" width="24" height="40" rx="7" fill="#f0eeea"/>
+  <!-- grip -->
+  <rect x="100" y="144" width="56" height="72" rx="18" fill="#a99bfa"/>
+</svg>
