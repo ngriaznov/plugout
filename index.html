@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en" style="background: #e9e7e2; color-scheme: light">
+  <head>
+    <meta charset="UTF-8" />
+    <script>
+      // Resolve the saved theme before first paint to avoid a flash.
+      (function () {
+        var pref = localStorage.getItem("plugout-theme");
+        var dark =
+          pref === "dark" ||
+          (pref !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+        var el = document.documentElement;
+        el.dataset.theme = dark ? "dark" : "light";
+        el.style.background = dark ? "#121110" : "#e9e7e2";
+        el.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>plugout</title>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,166 @@
+import { useEffect, useRef } from "react";
+import type { Plugin } from "../types";
+import { FormatChip } from "./FormatBadge";
+import { prefetchDetails } from "../detailsCache";
+import { formatBytes, type SortDir, type SortKey } from "../util";
+
+interface Props {
+  plugins: Plugin[];
+  selected: Set<string>;
+  loading: boolean;
+  query: string;
+  inspectedKey?: string;
+  sort: { key: SortKey; dir: SortDir };
+  onSort: (key: SortKey) => void;
+  onTogglePlugin: (p: Plugin) => void;
+  onToggleInstall: (id: string) => void;
+  onToggleAll: () => void;
+  onRowClick: (p: Plugin) => void;
+  onClearSearch: () => void;
+}
+
+function TriCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: () => void;
+  label: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = indeterminate;
+  }, [indeterminate]);
+  return <input ref={ref} type="checkbox" aria-label={label} checked={checked} onChange={onChange} />;
+}
+
+function SortHeader({
+  label,
+  k,
+  sort,
+  onSort,
+  className,
+}: {
+  label: string;
+  k: SortKey;
+  sort: { key: SortKey; dir: SortDir };
+  onSort: (key: SortKey) => void;
+  className?: string;
+}) {
+  const active = sort.key === k;
+  return (
+    <th
+      className={className}
+      aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : undefined}
+    >
+      <button type="button" className="th-btn" onClick={() => onSort(k)}>
+        {label}
+        <span className="sort-ind">{active ? (sort.dir === 1 ? "↑" : "↓") : ""}</span>
+      </button>
+    </th>
+  );
+}
+
+function SkeletonRows() {
+  return (
+    <>
+      {Array.from({ length: 9 }, (_, i) => (
+        <tr key={i} className="skel-row" style={{ animationDelay: `${i * 60}ms` }}>
+          <td className="c-check" />
+          <td>
+            <div className="skel" style={{ width: `${46 + ((i * 17) % 34)}%` }} />
+          </td>
+          <td className="c-vendor"><div className="skel" style={{ width: 70 }} /></td>
+          <td><div className="skel" style={{ width: 110 }} /></td>
+          <td><div className="skel" style={{ width: 54 }} /></td>
+          <td className="c-size"><div className="skel skel-right" style={{ width: 52 }} /></td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
+export function PluginList(p: Props) {
+  const allIds = p.plugins.flatMap((pl) => pl.installs.map((b) => b.id));
+  const allChecked = allIds.length > 0 && allIds.every((id) => p.selected.has(id));
+  const someChecked = allIds.some((id) => p.selected.has(id));
+
+  return (
+    <table className="table">
+      <thead>
+        <tr>
+          <th className="c-check">
+            <TriCheckbox
+              checked={allChecked}
+              indeterminate={!allChecked && someChecked}
+              onChange={p.onToggleAll}
+              label="Select all plugins"
+            />
+          </th>
+          <SortHeader label="Plugin" k="name" sort={p.sort} onSort={p.onSort} />
+          <SortHeader label="Vendor" k="vendor" sort={p.sort} onSort={p.onSort} className="c-vendor-h" />
+          <SortHeader label="Formats" k="formats" sort={p.sort} onSort={p.onSort} className="c-chips-h" />
+          <SortHeader label="Version" k="version" sort={p.sort} onSort={p.onSort} className="c-version-h" />
+          <SortHeader label="Size" k="size" sort={p.sort} onSort={p.onSort} className="c-size" />
+        </tr>
+      </thead>
+      <tbody>
+        {p.loading && p.plugins.length === 0 && <SkeletonRows />}
+        {p.plugins.map((pl) => {
+          const selCount = pl.installs.filter((b) => p.selected.has(b.id)).length;
+          return (
+            <tr
+              key={pl.key}
+              className={pl.key === p.inspectedKey ? "sel" : ""}
+              onClick={() => p.onRowClick(pl)}
+              onMouseEnter={() => prefetchDetails(pl)}
+            >
+              <td className="c-check" onClick={(e) => e.stopPropagation()}>
+                <TriCheckbox
+                  checked={selCount === pl.installs.length}
+                  indeterminate={selCount > 0 && selCount < pl.installs.length}
+                  onChange={() => p.onTogglePlugin(pl)}
+                  label={`Select ${pl.name}`}
+                />
+              </td>
+              <td className="c-name">
+                <div className="name">{pl.name}</div>
+                <div className="vendor">{pl.vendor}</div>
+              </td>
+              <td className="c-vendor">{pl.vendor}</td>
+              <td className="c-chips">
+                {pl.installs.map((b) => (
+                  <FormatChip
+                    key={b.id}
+                    format={b.format}
+                    selected={p.selected.has(b.id)}
+                    onToggle={() => p.onToggleInstall(b.id)}
+                  />
+                ))}
+              </td>
+              <td className="c-version">{pl.version || "—"}</td>
+              <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
+            </tr>
+          );
+        })}
+        {!p.loading && p.plugins.length === 0 && (
+          <tr>
+            <td colSpan={6} className="empty">
+              <div className="empty-state">
+                <div className="empty-title">
+                  {p.query ? <>No plugins match “{p.query}”</> : "No plugins found"}
+                </div>
+                {p.query && (
+                  <button className="ghost" onClick={p.onClearSearch}>Clear search</button>
+                )}
+              </div>
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
