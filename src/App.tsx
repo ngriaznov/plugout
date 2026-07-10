@@ -117,9 +117,9 @@ export default function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [confirming]);
 
-  async function doRemove() {
+  async function doRemove(extraPaths: string[]) {
     setBusy(true);
-    const res = await removeItems([...selected]);
+    const res = await removeItems([...selected, ...extraPaths]);
     setBusy(false);
     setConfirming(false);
     setResults(res);
@@ -242,6 +242,7 @@ export default function App() {
         {confirming && (
           <ConfirmModal
             bundles={selectedBundles}
+            allBundles={bundles}
             busy={busy}
             onCancel={() => setConfirming(false)}
             onConfirm={doRemove}

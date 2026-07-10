@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- Companion applications appear as an `APP` format chip — on the plugin's row when
+  names match, on their own row for vendor tools. Linked by installer receipt or name.
+- Removal now offers the installer's support files (presets, preferences, caches),
+  guarded: receipt evidence only, skipped when the installer is shared with plugins
+  staying installed, allowlisted Library roots only, toggleable in the confirmation.
+
 ## 0.1.4
 
 - One plugin, one row: installs whose AU vendor name differs from the

@@ -32,6 +32,14 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   the rest.
 - Shows real versions. Audio Units report an integer build number (`65797`); plugout
   displays the human version from the plugin's other formats instead.
+- **Companion apps are a format too.** The standalone app an installer dropped in
+  `/Applications` shows up as an `APP` chip on the plugin's row (installer-receipt or
+  name evidence); vendor tools like license managers get their own row. Remove them
+  like any format — or keep them.
+- **Support files go too, safely.** Removal offers the presets, preferences and caches
+  the plugin's installer wrote — only with receipt proof, only when no surviving plugin
+  shares the installer, only under safe Library roots, and always visibly toggleable
+  in the confirmation.
 - The inspector shows each install's version, size, location, bundle ID, which macOS
   installer package placed it (`pkgutil` receipt), and exactly which files a removal
   will touch. One click to reveal any bundle in Finder.
@@ -98,10 +106,10 @@ don't change the version do nothing.
 
 ## Scope
 
-plugout removes the plugin bundles themselves. Support files that installers scatter
-elsewhere (presets, shared libraries, license files) are shown per-install where known,
-but receipt-based full reversal — removing everything an installer wrote while
-protecting files shared between plugins — is future work.
+plugout removes plugin bundles, their companion applications, and — with installer
+receipts as proof — the support files those installers wrote. Files that can't be
+tied to an installer, or whose installer is shared with plugins staying on the
+machine, are deliberately left alone. Everything goes through the Trash.
 
 ## License
 

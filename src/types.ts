@@ -1,4 +1,4 @@
-export type Format = "AU" | "VST3" | "VST2" | "CLAP" | "AAX";
+export type Format = "AU" | "VST3" | "VST2" | "CLAP" | "AAX" | "APP";
 export type Scope = "user" | "system";
 export type RemovalStatus = "trashed" | "failed";
 
@@ -27,7 +27,7 @@ export interface RemovalResult {
   message: string | null;
 }
 
-export const FORMATS: Format[] = ["AU", "VST3", "VST2", "CLAP", "AAX"];
+export const FORMATS: Format[] = ["AU", "VST3", "VST2", "CLAP", "AAX", "APP"];
 
 // One plugin product, i.e. all installed format bundles of it merged together.
 export interface Plugin {
@@ -38,4 +38,15 @@ export interface Plugin {
   installs: PluginBundle[];
   sizeBytes: number;
   scopes: Scope[];
+}
+
+export interface SupportFile {
+  path: string;
+  sizeBytes: number;
+}
+
+export interface RemovalPreview {
+  supportFiles: SupportFile[];
+  /** Packages whose files were kept because other installed plugins share them. */
+  skippedShared: number;
 }

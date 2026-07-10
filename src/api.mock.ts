@@ -1,7 +1,7 @@
 // Browser-only mock of the Tauri backend so the frontend can be developed and
 // visually tested with plain `vite` (no Rust build). api.ts delegates here when
 // the app runs outside a Tauri window.
-import type { Format, PluginBundle, PluginDetails, RemovalResult, Scope } from "./types";
+import type { Format, PluginBundle, PluginDetails, RemovalPreview, RemovalResult, Scope } from "./types";
 import type { ReceiptUpdate } from "./api";
 
 type Def = [name: string, vendor: string, version: string, mb: number, formats: Format[], scope?: Scope, pkg?: string | null];
@@ -13,7 +13,8 @@ const DEFS: Def[] = [
   ["Augmented BRASS", "Arturia", "2.0.2.6369", 57, ["AU", "VST3", "VST2"], "system", "com.arturia.augbrass"],
   ["Augmented GRAND PIANO", "Arturia", "2.0.2.6369", 57, ["AU", "VST3", "VST2"], "system", "com.arturia.augpiano"],
   ["Pigments", "Arturia", "5.0.1.4310", 312, ["AU", "VST3", "CLAP"], "system", "com.arturia.pigments"],
-  ["Serum", "Xfer Records", "1.365", 248, ["AU", "VST3", "VST2"], "user", null],
+  ["Serum", "Xfer Records", "1.365", 248, ["AU", "VST3", "VST2", "APP"], "user", null],
+  ["Arturia Software Center", "Arturia", "2.6.1", 210, ["APP"], "system", "com.arturia.asc"],
   ["ValhallaRoom", "Valhalla DSP", "2.1.1", 18, ["AU", "VST3", "AAX"], "user", null],
   ["Ozone 11 Elements", "iZotope", "11.0.2", 421, ["AU", "VST3", "AAX"], "system", "com.izotope.ozone11"],
   ["Vital", "Vital Audio", "1.5.5", 176, ["AU", "VST3", "CLAP"], "user", null],
@@ -32,10 +33,12 @@ function bundlesFor([name, vendor, version, mb, formats, scope = "system", pkg =
     format,
     bundleId: `com.${vendor.replace(/\s+/g, "").toLowerCase()}.${name.replace(/\s+/g, "").toLowerCase()}`,
     path:
-      (scope === "user" ? "/Users/you" : "") +
-      `/Library/Audio/Plug-Ins/${format === "AU" ? "Components" : format.startsWith("VST") ? format : format}/${name}.${
-        format === "AU" ? "component" : format === "VST2" ? "vst" : format.toLowerCase()
-      }`,
+      format === "APP"
+        ? `/Applications/${name}.app`
+        : (scope === "user" ? "/Users/you" : "") +
+          `/Library/Audio/Plug-Ins/${format === "AU" ? "Components" : format.startsWith("VST") ? format : format}/${name}.${
+            format === "AU" ? "component" : format === "VST2" ? "vst" : format.toLowerCase()
+          }`,
     sizeBytes: Math.round(mb * 1024 * 1024 * (format === "AU" ? 1 : 0.98)),
     scope,
     packageId: pkg,
@@ -82,6 +85,25 @@ export const mockRemoveItems = async (ids: string[]): Promise<RemovalResult[]> =
 };
 
 export const mockRevealInFinder = async (): Promise<void> => {};
+
+export const mockRemovalPreview = async (removing: string[]): Promise<RemovalPreview> => {
+  await new Promise((r) => setTimeout(r, 350));
+  const removed = ALL.filter((b) => removing.includes(b.id));
+  const names = [...new Set(removed.map((b) => b.name))];
+  // Arturia packages are "shared" unless every Arturia bundle is being removed —
+  // demonstrates the exclusivity guard in browser dev mode.
+  const arturia = removed.some((b) => b.vendor === "Arturia");
+  const allArturiaRemoved = ALL.filter(
+    (b) => b.vendor === "Arturia" && !trashed.has(b.id),
+  ).every((b) => removing.includes(b.id));
+  return {
+    supportFiles: names.flatMap((n) => [
+      { path: `/Library/Application Support/${n}`, sizeBytes: 38_000_000 },
+      { path: `/Users/you/Library/Preferences/com.vendor.${n.replace(/\s+/g, "").toLowerCase()}.plist`, sizeBytes: 4_096 },
+    ]),
+    skippedShared: arturia && !allArturiaRemoved ? 1 : 0,
+  };
+};
 
 export const mockListen = <T>(event: string, cb: (payload: T) => void): Promise<() => void> => {
   const pool =

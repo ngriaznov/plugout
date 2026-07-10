@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { PluginBundle, PluginDetails, RemovalResult } from "./types";
+import type { PluginBundle, PluginDetails, RemovalPreview, RemovalResult } from "./types";
 import {
   mockStartScan,
   mockPluginDetails,
+  mockRemovalPreview,
   mockRemoveItems,
   mockRevealInFinder,
   mockListen,
@@ -21,6 +22,14 @@ export const removeItems = (ids: string[]) =>
   isTauri ? invoke<RemovalResult[]>("remove_items", { ids }) : mockRemoveItems(ids);
 export const revealInFinder = (path: string) =>
   isTauri ? invoke<void>("reveal_in_finder", { path }) : mockRevealInFinder();
+/** Support files a removal would additionally clean up. `bundles` must be the
+ * full scanned set — exclusivity is judged against everything installed. */
+export const removalPreview = (removing: string[], bundles: PluginBundle[]) => {
+  const owned = bundles.map((b) => ({ id: b.id, packageId: b.packageId }));
+  return isTauri
+    ? invoke<RemovalPreview>("removal_preview", { removing, bundles: owned })
+    : mockRemovalPreview(removing);
+};
 
 // Scan events (emitted by start_scan, off the main thread)
 export interface ReceiptUpdate {

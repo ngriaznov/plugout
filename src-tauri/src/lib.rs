@@ -22,6 +22,7 @@ mod commands;
 mod model;
 mod receipts;
 mod remover;
+mod reversal;
 mod scanner;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -34,6 +35,7 @@ pub fn run() {
             commands::start_scan,
             commands::plugin_details,
             commands::remove_items,
+            commands::removal_preview,
             commands::reveal_in_finder,
         ])
         .run(tauri::generate_context!())

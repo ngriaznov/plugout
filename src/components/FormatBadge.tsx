@@ -9,6 +9,7 @@ export const FORMAT_COLORS: Record<Format, string> = {
   VST2: "#7db8f7",
   CLAP: "#f2d21f",
   AAX: "#f39a6b",
+  APP: "#ef9db4",
 };
 
 const colorVar = (format: Format) => ({ "--c": FORMAT_COLORS[format] }) as CSSProperties;

@@ -17,6 +17,9 @@ function InstallCard({ bundle, details }: { bundle: PluginBundle; details: Detai
       </header>
 
       <dl className="kv">
+        {bundle.format === "APP" && (
+          <div><dt>Kind</dt><dd>Companion application</dd></div>
+        )}
         <div><dt>Location</dt><dd>{bundle.scope === "user" ? "User" : "System"}</dd></div>
         <div>
           <dt>Installed by</dt>

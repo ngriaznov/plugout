@@ -15,6 +15,10 @@ pub enum Format {
     Clap,
     #[serde(rename = "AAX")]
     Aax,
+    /// A companion application in /Applications, linked to a plugin by
+    /// installer receipt or by name.
+    #[serde(rename = "APP")]
+    App,
 }
 
 impl Format {
@@ -26,6 +30,7 @@ impl Format {
             Format::Vst2 => "vst",
             Format::Clap => "clap",
             Format::Aax => "aaxplugin",
+            Format::App => "app",
         }
     }
 }
