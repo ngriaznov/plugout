@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- New app icon: an O sliced through by a diagonal line.
+- Internal cleanup: removal API takes bundle paths directly, crate-level docs.
+
 ## 0.1.0
 
 Initial release.
