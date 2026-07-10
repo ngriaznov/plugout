@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4
+
+- One plugin, one row: installs whose AU vendor name differs from the
+  bundle-id vendor of their VST/AAX siblings (e.g. "discoDSP" vs "discodsp",
+  "D16 Group Audio Software" vs "d16group") no longer show as duplicates.
+
 ## 0.1.3
 
 - First release delivered through the built-in updater.
