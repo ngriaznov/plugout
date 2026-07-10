@@ -1,12 +1,6 @@
 <svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- plugout mark: a quarter-inch jack, unplugged -->
+  <!-- plugout mark: P, crossed out like a Norwegian Ø -->
   <rect width="256" height="256" rx="58" fill="#141414"/>
-  <!-- tip -->
-  <rect x="116" y="40" width="24" height="34" rx="12" fill="#f0eeea"/>
-  <!-- ring -->
-  <rect x="116" y="82" width="24" height="14" rx="7" fill="#f0eeea"/>
-  <!-- sleeve -->
-  <rect x="116" y="104" width="24" height="40" rx="7" fill="#f0eeea"/>
-  <!-- grip -->
-  <rect x="100" y="144" width="56" height="72" rx="18" fill="#a99bfa"/>
+  <path d="M86 202 V52 H124 A47 47 0 0 1 124 146 H86" stroke="#f0eeea" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="62" y1="210" x2="194" y2="46" stroke="#a99bfa" stroke-width="26" stroke-linecap="round"/>
 </svg>
