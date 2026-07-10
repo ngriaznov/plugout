@@ -36,7 +36,7 @@ function bundlesFor([name, vendor, version, mb, formats, scope = "system", pkg =
       format === "APP"
         ? `/Applications/${name}.app`
         : (scope === "user" ? "/Users/you" : "") +
-          `/Library/Audio/Plug-Ins/${format === "AU" ? "Components" : format.startsWith("VST") ? format : format}/${name}.${
+          `/Library/Audio/Plug-Ins/${format === "AU" ? "Components" : format}/${name}.${
             format === "AU" ? "component" : format === "VST2" ? "vst" : format.toLowerCase()
           }`,
     sizeBytes: Math.round(mb * 1024 * 1024 * (format === "AU" ? 1 : 0.98)),

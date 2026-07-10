@@ -23,10 +23,12 @@ const RECEIPT_BATCH: usize = 20;
 
 /// Kick off a scan. Returns immediately; the work runs off the main thread so the
 /// window never freezes. Emits:
-///   - `scan:batch`  — a `Vec<PluginBundle>` for each plugin folder, as it's scanned
-///   - `scan:done`   — the total count, once all folders are scanned
-///   - `receipt:update` — `{ id, packageId }` per plugin, as installers resolve in the
-///     background (each needs a `pkgutil` spawn, so this trails the fast scan)
+///   - `scan:batch`  — a `Vec<PluginBundle>` per plugin folder as it's scanned,
+///     then one batch of companion apps found by walking /Applications
+///   - `scan:done`   — the total count, once folders and apps are in
+///   - `receipt:update` — `{ id, packageId }` per bundle, as installers resolve
+///     in the background (each needs a `pkgutil` spawn, so this trails the scan)
+///   - `enrich:done` — when the last receipt has resolved
 #[tauri::command]
 pub fn start_scan(app: AppHandle) {
     tauri::async_runtime::spawn_blocking(move || {
@@ -61,27 +63,16 @@ fn enrich_receipts(app: &AppHandle, ids: Vec<String>) {
         let queue = Arc::clone(&queue);
         handles.push(std::thread::spawn(move || {
             let mut buf: Vec<ReceiptUpdate> = Vec::new();
-            loop {
-                let id = {
-                    let mut q = queue.lock().unwrap();
-                    q.pop()
-                };
-                match id {
-                    Some(id) => {
-                        let package_id = receipts::owner_of(&id, &RealPkgUtil);
-                        buf.push(ReceiptUpdate { id, package_id });
-                        if buf.len() >= RECEIPT_BATCH {
-                            let _ = app.emit("receipt:update", &buf);
-                            buf.clear();
-                        }
-                    }
-                    None => {
-                        if !buf.is_empty() {
-                            let _ = app.emit("receipt:update", &buf);
-                        }
-                        break;
-                    }
+            while let Some(id) = { queue.lock().unwrap().pop() } {
+                let package_id = receipts::owner_of(&id, &RealPkgUtil);
+                buf.push(ReceiptUpdate { id, package_id });
+                if buf.len() >= RECEIPT_BATCH {
+                    let _ = app.emit("receipt:update", &buf);
+                    buf.clear();
                 }
+            }
+            if !buf.is_empty() {
+                let _ = app.emit("receipt:update", &buf);
             }
         }));
     }

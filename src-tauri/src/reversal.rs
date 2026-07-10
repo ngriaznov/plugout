@@ -140,9 +140,9 @@ impl Fs for RealFs {
 }
 
 /// Compute the support files offered when removing `removing` (bundle paths,
-/// apps included). `owner_of_removing` maps each removing path to its package
-/// (if any); `all_owned` maps every scanned bundle path (including survivors)
-/// to its package.
+/// apps included). `all_owned` maps every scanned bundle path — survivors
+/// included — to its owning package; exclusivity can only be judged against
+/// everything installed.
 pub fn removal_preview(
     removing: &BTreeSet<String>,
     all_owned: &BTreeMap<String, String>,

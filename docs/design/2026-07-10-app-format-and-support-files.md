@@ -1,6 +1,10 @@
 # APP as a format + receipt-based support-file cleanup
 
-**Status:** Approved 2026-07-10
+**Status:** Approved 2026-07-10. Amended same day: app *discovery* moved from
+receipt families to a filesystem walk of the Applications folders (the receipt
+approach was correct but took ~60s on a real library; see the "Discover apps by
+walking /Applications" commit). Receipt families remain the mechanism for
+support files and the removal preview, as designed below.
 
 Completes the "receipt-based reversal" the README scope note promised: companion
 applications become a first-class `APP` format chip, and installer-owned support

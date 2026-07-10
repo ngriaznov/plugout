@@ -1,22 +1,27 @@
-//! plugout backend: find and trash audio plugin bundles on macOS.
+//! plugout backend: find and trash audio plugins and their leftovers on macOS.
 //!
 //! The pipeline, in the order a scan flows through it:
 //!
 //! - [`scanner`] walks the AU/VST3/VST2/CLAP/AAX folders under both `Library`
-//!   roots, reading each bundle's `Info.plist`. Results stream to the UI one
-//!   folder at a time, so the list fills while slower folders are still sizing.
+//!   roots, reading each bundle's `Info.plist`, then walks the Applications
+//!   folders for companion apps linked to those plugins by name, bundle-id
+//!   vendor, or vendor folder. Results stream to the UI as they're found.
 //! - [`receipts`] resolves which installer package owns each bundle. Every
 //!   lookup spawns `pkgutil` (~250ms), so this runs after the scan, on a small
 //!   worker pool, and trails in as `receipt:update` events.
-//! - [`remover`] moves bundles to the Trash, batched by scope: one Trash call
-//!   for user files, one privileged call — one admin prompt — for everything
-//!   in `/Library`, no matter how many plugins are selected.
+//! - [`reversal`] answers "what else did the installers write?" for a removal:
+//!   receipt families (one product = many receipts), an exclusivity guard so
+//!   nothing shared with surviving plugins is offered, an allowlist of safe
+//!   Library roots, and subtree proof before offering a directory whole.
+//! - [`remover`] moves everything to the Trash, batched by scope: one Trash
+//!   call for user files, one privileged call — one admin prompt — for
+//!   everything in `/Library`, no matter how much is selected.
 //! - [`commands`] is the thin Tauri layer that wires these to the frontend.
 //!
 //! A bundle's `id` is its filesystem path — there is deliberately no other
-//! identity. External effects (`pkgutil`, the Trash) sit behind the
-//! [`receipts::PkgUtil`] and [`remover::Trasher`] traits, so every module's
-//! logic is tested without touching the real system.
+//! identity. External effects (`pkgutil`, the Trash, the filesystem) sit
+//! behind the [`receipts::PkgUtil`], [`remover::Trasher`] and [`reversal::Fs`]
+//! traits, so every module's logic is tested without touching the real system.
 
 mod commands;
 mod model;

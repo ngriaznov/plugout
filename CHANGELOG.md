@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- Companion apps are found by walking the Applications folders instead of
+  deriving them from installer receipts — they now appear with the scan instead
+  of a minute later. Apple system apps can never match.
+- A "linking installers…" indicator shows while receipt enrichment runs.
+
 ## 0.2.0
 
 - Companion applications appear as an `APP` format chip — on the plugin's row when

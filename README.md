@@ -32,10 +32,10 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   the rest.
 - Shows real versions. Audio Units report an integer build number (`65797`); plugout
   displays the human version from the plugin's other formats instead.
-- **Companion apps are a format too.** The standalone app an installer dropped in
-  `/Applications` shows up as an `APP` chip on the plugin's row (installer-receipt or
-  name evidence); vendor tools like license managers get their own row. Remove them
-  like any format — or keep them.
+- **Companion apps are a format too.** The standalone app a plugin installed in
+  `/Applications` shows up as an `APP` chip on the plugin's row, matched by name,
+  bundle-id vendor, or vendor folder; vendor tools like license managers get their
+  own row. Remove them like any format — or keep them.
 - **Support files go too, safely.** Removal offers the presets, preferences and caches
   the plugin's installer wrote — only with receipt proof, only when no surviving plugin
   shares the installer, only under safe Library roots, and always visibly toggleable
@@ -71,11 +71,15 @@ verified against a key embedded in the app.
 
 The backend is Rust. A scan walks `Components`, `VST`, `VST3`, `CLAP` under both
 `Library/Audio/Plug-Ins` roots plus the Avid AAX directory, reads each bundle's
-`Info.plist` for name, vendor, version and bundle ID, sizes the bundle on a worker
-thread, and streams batches to the UI over Tauri events. Installer receipts are linked
-afterwards in the background — `pkgutil --file-info` is slow, so it never blocks the
-list. Removal uses the macOS Trash API for user files and a single
-`with administrator privileges` shell call for the whole system-scope batch.
+`Info.plist` for name, vendor, version and bundle ID, then walks the Applications
+folders for companion apps linked to those plugins — all streamed to the UI over
+Tauri events within the first seconds. Installer receipts are linked afterwards in
+the background (`pkgutil --file-info` is slow, so it never blocks the list; a
+"linking installers…" indicator shows while it runs). When you remove something,
+`pkgutil --files` over the plugins' receipt families reveals the installers' support
+files, guarded so nothing shared with surviving plugins is ever offered. Removal
+uses the macOS Trash API for user files and a single `with administrator privileges`
+shell call for the whole system-scope batch.
 
 The frontend is React. Format bundles are merged into plugins client-side
 (`mergePlugins` in [src/util.ts](src/util.ts)), selection is tracked per bundle so
