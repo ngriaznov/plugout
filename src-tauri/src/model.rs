@@ -1,3 +1,6 @@
+//! Wire types shared with the frontend. Serde's camelCase renaming keeps these
+//! structs mirror-images of the TypeScript interfaces in `src/types.ts`.
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -12,6 +15,19 @@ pub enum Format {
     Clap,
     #[serde(rename = "AAX")]
     Aax,
+}
+
+impl Format {
+    /// The bundle extension this format uses on disk.
+    pub fn extension(self) -> &'static str {
+        match self {
+            Format::Au => "component",
+            Format::Vst3 => "vst3",
+            Format::Vst2 => "vst",
+            Format::Clap => "clap",
+            Format::Aax => "aaxplugin",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

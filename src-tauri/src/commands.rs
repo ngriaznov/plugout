@@ -1,4 +1,4 @@
-use crate::model::{Format, PluginBundle, PluginDetails, RemovalResult, Scope};
+use crate::model::{PluginDetails, RemovalResult};
 use crate::receipts::{self, RealPkgUtil};
 use crate::remover::{self, RealTrasher};
 use crate::scanner;
@@ -100,28 +100,11 @@ pub async fn plugin_details(id: String) -> PluginDetails {
     })
 }
 
+/// A bundle's id IS its path, so removal needs nothing but the ids.
 #[tauri::command]
 pub fn remove_items(ids: Vec<String>) -> Vec<RemovalResult> {
     let home = std::env::var("HOME").unwrap_or_default();
-    // The plugin id IS its bundle path; removal only needs the path, so build minimal
-    // bundles rather than re-scanning the whole system.
-    let bundles: Vec<PluginBundle> = ids.iter().map(|id| minimal_bundle(id)).collect();
-    remover::remove_bundles(&bundles, &home, &RealTrasher)
-}
-
-fn minimal_bundle(path: &str) -> PluginBundle {
-    PluginBundle {
-        id: path.to_string(),
-        path: path.to_string(),
-        name: String::new(),
-        vendor: String::new(),
-        version: String::new(),
-        format: Format::Vst3,
-        bundle_id: String::new(),
-        size_bytes: 0,
-        scope: Scope::User,
-        package_id: None,
-    }
+    remover::remove_paths(&ids, &home, &RealTrasher)
 }
 
 #[tauri::command]
@@ -132,16 +115,4 @@ pub fn reveal_in_finder(path: String) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|e| e.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn minimal_bundle_uses_path_as_id_and_path() {
-        let b = minimal_bundle("/Library/Audio/Plug-Ins/VST3/X.vst3");
-        assert_eq!(b.id, "/Library/Audio/Plug-Ins/VST3/X.vst3");
-        assert_eq!(b.path, "/Library/Audio/Plug-Ins/VST3/X.vst3");
-    }
 }

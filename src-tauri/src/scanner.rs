@@ -74,18 +74,8 @@ pub fn dir_size(path: &Path) -> u64 {
     entries.flatten().map(|e| dir_size(&e.path())).sum()
 }
 
-fn extension_for(format: Format) -> &'static str {
-    match format {
-        Format::Au => "component",
-        Format::Vst3 => "vst3",
-        Format::Vst2 => "vst",
-        Format::Clap => "clap",
-        Format::Aax => "aaxplugin",
-    }
-}
-
 pub fn scan_dir(dir: &Path, format: Format, scope: Scope) -> Vec<PluginBundle> {
-    let want = extension_for(format);
+    let want = format.extension();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };

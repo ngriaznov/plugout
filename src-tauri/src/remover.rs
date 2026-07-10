@@ -1,9 +1,9 @@
-use crate::model::{PluginBundle, RemovalResult, RemovalStatus};
+use crate::model::{RemovalResult, RemovalStatus};
 use std::process::Command;
 
 pub trait Trasher {
     fn trash(&self, paths: &[String]) -> Result<(), String>;
-    fn trash_privileged(&self, paths: &[String], forget_pkg: Option<&str>) -> Result<(), String>;
+    fn trash_privileged(&self, paths: &[String]) -> Result<(), String>;
 }
 
 pub fn is_system_path(path: &str, home: &str) -> bool {
@@ -11,24 +11,13 @@ pub fn is_system_path(path: &str, home: &str) -> bool {
     !path.starts_with(&format!("{home}/"))
 }
 
-/// Trash the selected plugin bundles. Batched by scope: all user-scope bundles go
-/// in one Trash call, and all system-scope bundles go in a single privileged call
-/// (so the user sees at most one admin prompt per removal, not one per plugin).
-pub fn remove_bundles(
-    bundles: &[PluginBundle],
-    home: &str,
-    trasher: &dyn Trasher,
-) -> Vec<RemovalResult> {
-    let user_paths: Vec<String> = bundles
-        .iter()
-        .filter(|b| !is_system_path(&b.path, home))
-        .map(|b| b.path.clone())
-        .collect();
-    let sys_paths: Vec<String> = bundles
-        .iter()
-        .filter(|b| is_system_path(&b.path, home))
-        .map(|b| b.path.clone())
-        .collect();
+/// Trash the given bundle paths (a bundle's id IS its path). Batched by scope:
+/// all user-scope paths go in one Trash call, and all system-scope paths go in a
+/// single privileged call — so the user sees at most one admin prompt per
+/// removal, not one per plugin.
+pub fn remove_paths(paths: &[String], home: &str, trasher: &dyn Trasher) -> Vec<RemovalResult> {
+    let (sys_paths, user_paths): (Vec<String>, Vec<String>) =
+        paths.iter().cloned().partition(|p| is_system_path(p, home));
 
     let user_result = if user_paths.is_empty() {
         Ok(())
@@ -38,30 +27,25 @@ pub fn remove_bundles(
     let sys_result = if sys_paths.is_empty() {
         Ok(())
     } else {
-        trasher.trash_privileged(&sys_paths, None)
+        trasher.trash_privileged(&sys_paths)
     };
 
-    bundles
+    paths
         .iter()
-        .map(|b| {
-            let outcome = if is_system_path(&b.path, home) {
+        .map(|p| {
+            let outcome = if is_system_path(p, home) {
                 &sys_result
             } else {
                 &user_result
             };
-            match outcome {
-                Ok(()) => RemovalResult {
-                    id: b.id.clone(),
-                    path: b.path.clone(),
-                    status: RemovalStatus::Trashed,
-                    message: None,
+            RemovalResult {
+                id: p.clone(),
+                path: p.clone(),
+                status: match outcome {
+                    Ok(()) => RemovalStatus::Trashed,
+                    Err(_) => RemovalStatus::Failed,
                 },
-                Err(e) => RemovalResult {
-                    id: b.id.clone(),
-                    path: b.path.clone(),
-                    status: RemovalStatus::Failed,
-                    message: Some(e.clone()),
-                },
+                message: outcome.as_ref().err().cloned(),
             }
         })
         .collect()
@@ -74,7 +58,7 @@ impl Trasher for RealTrasher {
         trash::delete_all(paths).map_err(|e| e.to_string())
     }
 
-    fn trash_privileged(&self, paths: &[String], forget_pkg: Option<&str>) -> Result<(), String> {
+    fn trash_privileged(&self, paths: &[String]) -> Result<(), String> {
         let home = std::env::var("HOME").unwrap_or_default();
         let trash = format!("{home}/.Trash");
         // `set -e` makes any failed move abort with a non-zero exit, so a move that
@@ -87,13 +71,6 @@ impl Trasher for RealTrasher {
         );
         for p in paths {
             sh.push_str(&format!("mv {} \"$d\"/; ", sh_quote(p)));
-        }
-        if let Some(pkg) = forget_pkg {
-            // Forgetting the receipt is best-effort cleanup; it must not fail the removal.
-            sh.push_str(&format!(
-                "pkgutil --forget {} >/dev/null 2>&1 || true; ",
-                sh_quote(pkg)
-            ));
         }
 
         let apple = format!(
@@ -126,16 +103,15 @@ fn as_escape(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{Format, Scope};
     use std::cell::RefCell;
 
     #[derive(Default)]
     struct SpyTrasher {
         user: RefCell<Vec<String>>,
         priv_: RefCell<Vec<String>>,
-        forgot: RefCell<Vec<String>>,
         user_calls: RefCell<u32>,
         priv_calls: RefCell<u32>,
+        fail_privileged: bool,
     }
     impl Trasher for SpyTrasher {
         fn trash(&self, paths: &[String]) -> Result<(), String> {
@@ -143,29 +119,19 @@ mod tests {
             self.user.borrow_mut().extend_from_slice(paths);
             Ok(())
         }
-        fn trash_privileged(&self, paths: &[String], forget: Option<&str>) -> Result<(), String> {
+        fn trash_privileged(&self, paths: &[String]) -> Result<(), String> {
             *self.priv_calls.borrow_mut() += 1;
             self.priv_.borrow_mut().extend_from_slice(paths);
-            if let Some(f) = forget {
-                self.forgot.borrow_mut().push(f.to_string());
+            if self.fail_privileged {
+                Err("User canceled".into())
+            } else {
+                Ok(())
             }
-            Ok(())
         }
     }
 
-    fn bundle(path: &str, scope: Scope) -> PluginBundle {
-        PluginBundle {
-            id: path.into(),
-            name: "N".into(),
-            vendor: "V".into(),
-            version: "1".into(),
-            format: Format::Vst3,
-            bundle_id: "com.v.n".into(),
-            path: path.into(),
-            size_bytes: 1,
-            scope,
-            package_id: None,
-        }
+    fn paths(ps: &[&str]) -> Vec<String> {
+        ps.iter().map(|p| p.to_string()).collect()
     }
 
     #[test]
@@ -181,14 +147,16 @@ mod tests {
     }
 
     #[test]
-    fn user_bundles_trashed_in_one_batch() {
+    fn user_paths_trashed_in_one_batch() {
         let spy = SpyTrasher::default();
-        let a = bundle("/Users/me/Library/Audio/Plug-Ins/VST3/A.vst3", Scope::User);
-        let b = bundle(
-            "/Users/me/Library/Audio/Plug-Ins/Components/B.component",
-            Scope::User,
+        let res = remove_paths(
+            &paths(&[
+                "/Users/me/Library/Audio/Plug-Ins/VST3/A.vst3",
+                "/Users/me/Library/Audio/Plug-Ins/Components/B.component",
+            ]),
+            "/Users/me",
+            &spy,
         );
-        let res = remove_bundles(&[a, b], "/Users/me", &spy);
         assert!(res.iter().all(|r| r.status == RemovalStatus::Trashed));
         assert_eq!(*spy.user_calls.borrow(), 1); // single batched Trash call
         assert_eq!(spy.user.borrow().len(), 2);
@@ -196,29 +164,54 @@ mod tests {
     }
 
     #[test]
-    fn system_bundles_trashed_in_one_privileged_batch() {
+    fn system_paths_trashed_in_one_privileged_batch() {
         let spy = SpyTrasher::default();
-        let a = bundle("/Library/Audio/Plug-Ins/VST3/A.vst3", Scope::System);
-        let b = bundle(
-            "/Library/Audio/Plug-Ins/Components/B.component",
-            Scope::System,
+        let res = remove_paths(
+            &paths(&[
+                "/Library/Audio/Plug-Ins/VST3/A.vst3",
+                "/Library/Audio/Plug-Ins/Components/B.component",
+            ]),
+            "/Users/me",
+            &spy,
         );
-        let res = remove_bundles(&[a, b], "/Users/me", &spy);
         assert!(res.iter().all(|r| r.status == RemovalStatus::Trashed));
         assert_eq!(*spy.priv_calls.borrow(), 1); // single admin prompt for both
         assert_eq!(spy.priv_.borrow().len(), 2);
-        assert!(spy.forgot.borrow().is_empty());
         assert!(spy.user.borrow().is_empty());
     }
 
     #[test]
     fn mixed_scope_splits_into_one_call_each() {
         let spy = SpyTrasher::default();
-        let u = bundle("/Users/me/Library/Audio/Plug-Ins/VST3/U.vst3", Scope::User);
-        let s = bundle("/Library/Audio/Plug-Ins/VST3/S.vst3", Scope::System);
-        let res = remove_bundles(&[u, s], "/Users/me", &spy);
+        let res = remove_paths(
+            &paths(&[
+                "/Users/me/Library/Audio/Plug-Ins/VST3/U.vst3",
+                "/Library/Audio/Plug-Ins/VST3/S.vst3",
+            ]),
+            "/Users/me",
+            &spy,
+        );
         assert_eq!(res.len(), 2);
         assert_eq!(*spy.user_calls.borrow(), 1);
         assert_eq!(*spy.priv_calls.borrow(), 1);
+    }
+
+    #[test]
+    fn privileged_failure_marks_only_system_paths_failed() {
+        let spy = SpyTrasher {
+            fail_privileged: true,
+            ..Default::default()
+        };
+        let res = remove_paths(
+            &paths(&[
+                "/Users/me/Library/Audio/Plug-Ins/VST3/U.vst3",
+                "/Library/Audio/Plug-Ins/VST3/S.vst3",
+            ]),
+            "/Users/me",
+            &spy,
+        );
+        assert_eq!(res[0].status, RemovalStatus::Trashed);
+        assert_eq!(res[1].status, RemovalStatus::Failed);
+        assert_eq!(res[1].message.as_deref(), Some("User canceled"));
     }
 }
