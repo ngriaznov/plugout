@@ -1,6 +1,6 @@
 [package]
 name = "plugout"
-version = "0.1.2"
+version = "0.1.3"
 description = "Find and remove audio plugins (AU, VST3, VST2, CLAP, AAX) on macOS"
 authors = ["Nikita Griaznov"]
 license = "Apache-2.0"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- First release delivered through the built-in updater.
+
 ## 0.1.2
 
 - Auto-update from GitHub releases: signed updates, checked quietly at launch,
