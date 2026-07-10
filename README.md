@@ -1,4 +1,4 @@
-<img src="docs/logo.svg" width="72" align="left" alt="plugout logo: a quarter-inch jack on a dark rounded square">
+<img src="docs/logo.svg" width="72" align="left" alt="plugout logo: an O sliced through by a diagonal line, on a dark rounded square">
 
 # plugout
 
