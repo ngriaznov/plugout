@@ -43,31 +43,6 @@ pub fn expand_family(pkg_id: &str, all_pkgs: &[String]) -> BTreeSet<String> {
     family
 }
 
-/// `.app` bundles among a package's paths, at any depth under an Applications
-/// folder: `/Applications/X.app`, `/Applications/Arturia/X.app`, `~/Applications/…`.
-/// Returns the app bundle path itself, not files inside it.
-pub fn apps_in(paths: &[String]) -> Vec<String> {
-    let mut apps: BTreeSet<String> = BTreeSet::new();
-    for p in paths {
-        let Some(idx) = p.find("Applications/") else {
-            continue;
-        };
-        let base = &p[..idx + "Applications/".len()];
-        let mut acc = String::new();
-        for comp in p[base.len()..].split('/') {
-            if !acc.is_empty() {
-                acc.push('/');
-            }
-            acc.push_str(comp);
-            if comp.len() > 4 && comp.ends_with(".app") {
-                apps.insert(format!("{base}{acc}"));
-                break;
-            }
-        }
-    }
-    apps.into_iter().collect()
-}
-
 /// Known-safe roots under either Library root. Vendors also write directly to
 /// `Library/<Vendor>/…` (Arturia, UVI), so paths at least one level inside any
 /// Library directory are allowed unless the directory is system-critical.
@@ -324,26 +299,6 @@ mod tests {
     }
 
     #[test]
-    fn apps_in_finds_apps_at_any_depth_under_applications() {
-        let paths = vec![
-            "/Applications/Serum.app".to_string(),
-            "/Applications/Serum.app/Contents/Info.plist".to_string(),
-            "/Applications/Arturia/ARP 2600 V3.app/Contents".to_string(),
-            "/Users/me/Applications/Mini.app/Contents/MacOS/mini".to_string(),
-            "/Applications/Arturia".to_string(), // bare vendor dir: not an app
-            "/Library/Application Support/X/notanapp".to_string(),
-        ];
-        assert_eq!(
-            apps_in(&paths),
-            vec![
-                "/Applications/Arturia/ARP 2600 V3.app",
-                "/Applications/Serum.app",
-                "/Users/me/Applications/Mini.app"
-            ]
-        );
-    }
-
-    #[test]
     fn family_prefix_needs_three_segments() {
         assert_eq!(
             family_prefix("com.Arturia.ARP2600V3.vst3").as_deref(),
@@ -564,30 +519,6 @@ mod tests {
             .map(|f| f.path.as_str())
             .collect();
         assert_eq!(paths, vec!["/Library/Application Support/Shared/mine"]);
-    }
-
-    /// Real-system probe (requires installed Arturia plugins; not run in CI):
-    /// `cargo test real_system -- --ignored --nocapture`
-    #[test]
-    #[ignore]
-    fn real_system_discovery_probe() {
-        use crate::receipts::RealPkgUtil;
-        let plugin = "/Library/Audio/Plug-Ins/VST3/ARP 2600 V3.vst3";
-        let owner = crate::receipts::owner_of(plugin, &RealPkgUtil).expect("owner");
-        let all = RealPkgUtil.all_packages();
-        let family = expand_family(&owner, &all);
-        println!("owner={owner} family={family:?}");
-        assert!(family.len() > 1, "family should have sibling receipts");
-
-        let apps: Vec<String> = family
-            .iter()
-            .flat_map(|p| apps_in(&package_paths(p, &RealPkgUtil)))
-            .collect();
-        println!("apps={apps:?}");
-        assert!(
-            apps.iter().any(|a| a.contains("ARP 2600 V3.app")),
-            "should find the nested standalone app"
-        );
     }
 
     #[test]
