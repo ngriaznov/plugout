@@ -48,3 +48,6 @@ export const onScanDone = (cb: (total: number) => void): Promise<UnlistenFn> =>
 
 export const onReceiptUpdate = (cb: (updates: ReceiptUpdate[]) => void): Promise<UnlistenFn> =>
   on<ReceiptUpdate[]>("receipt:update", cb);
+
+export const onEnrichDone = (cb: () => void): Promise<UnlistenFn> =>
+  on<null>("enrich:done", cb);

@@ -148,6 +148,12 @@ input[type="checkbox"] {
   font-variant-numeric: tabular-nums;
 }
 .toolbar .spacer { flex: 1; }
+.toolbar .enriching {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 500; letter-spacing: 0;
+  color: var(--faint); margin-left: 10px;
+}
+.toolbar .enriching .spinner { width: 11px; height: 11px; }
 
 .update-pill {
   display: inline-flex; align-items: center; gap: 7px;

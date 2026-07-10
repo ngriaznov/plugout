@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Format, Scope, Plugin, PluginBundle, RemovalResult } from "./types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { startScan, removeItems, onScanBatch, onScanDone, onReceiptUpdate } from "./api";
+import { startScan, removeItems, onScanBatch, onScanDone, onReceiptUpdate, onEnrichDone } from "./api";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
@@ -16,6 +16,7 @@ import { UpdatePill } from "./components/UpdatePill";
 export default function App() {
   const [bundles, setBundles] = useState<PluginBundle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [enriching, setEnriching] = useState(true);
   const [formatFilter, setFormat] = useState<Format | "ALL">("ALL");
   const [scopeFilter, setScope] = useState<Scope | "ALL">("ALL");
   const [query, setQuery] = useState("");
@@ -78,6 +79,7 @@ export default function App() {
     setSelected(new Set());
     setInspectedKey(null);
     setLoading(true);
+    setEnriching(true);
     startScan();
   }
 
@@ -88,6 +90,7 @@ export default function App() {
       const subs = await Promise.all([
         onScanBatch((batch) => setBundles((prev) => [...prev, ...batch])),
         onScanDone(() => setLoading(false)),
+        onEnrichDone(() => setEnriching(false)),
         onReceiptUpdate((updates) =>
           setBundles((prev) => {
             const m = new Map(updates.map((u) => [u.id, u.packageId]));
@@ -199,7 +202,14 @@ export default function App() {
                 <span className="spinner" /> Scanning… {bundles.length} found
               </>
             ) : (
-              `${plugins.length} plugins`
+              <>
+                {plugins.length} plugins
+                {enriching && (
+                  <span className="enriching" role="status">
+                    <span className="spinner" /> linking installers…
+                  </span>
+                )}
+              </>
             )}
           </div>
           <div className="spacer" />

@@ -53,8 +53,9 @@ type Listeners = {
   batch: ((b: PluginBundle[]) => void)[];
   done: ((n: number) => void)[];
   receipt: ((u: ReceiptUpdate[]) => void)[];
+  enrich: ((v: null) => void)[];
 };
-const listeners: Listeners = { batch: [], done: [], receipt: [] };
+const listeners: Listeners = { batch: [], done: [], receipt: [], enrich: [] };
 
 export const mockStartScan = async (): Promise<void> => {
   const bundles = live();
@@ -62,6 +63,8 @@ export const mockStartScan = async (): Promise<void> => {
   setTimeout(() => listeners.batch.forEach((cb) => cb(bundles.slice(0, mid))), 500);
   setTimeout(() => listeners.batch.forEach((cb) => cb(bundles.slice(mid))), 1000);
   setTimeout(() => listeners.done.forEach((cb) => cb(bundles.length)), 1200);
+  // installer linking trails the scan, like the real pkgutil enrichment
+  setTimeout(() => listeners.enrich.forEach((cb) => cb(null)), 2800);
 };
 
 export const mockPluginDetails = async (id: string): Promise<PluginDetails> => {
@@ -107,7 +110,13 @@ export const mockRemovalPreview = async (removing: string[]): Promise<RemovalPre
 
 export const mockListen = <T>(event: string, cb: (payload: T) => void): Promise<() => void> => {
   const pool =
-    event === "scan:batch" ? listeners.batch : event === "scan:done" ? listeners.done : listeners.receipt;
+    event === "scan:batch"
+      ? listeners.batch
+      : event === "scan:done"
+        ? listeners.done
+        : event === "enrich:done"
+          ? listeners.enrich
+          : listeners.receipt;
   pool.push(cb as never);
   return Promise.resolve(() => {
     const i = pool.indexOf(cb as never);

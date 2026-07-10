@@ -45,6 +45,7 @@ pub fn start_scan(app: AppHandle) {
 
         let ids = plugins.iter().chain(&apps).map(|b| b.id.clone()).collect();
         enrich_receipts(&app, ids);
+        let _ = app.emit("enrich:done", ());
     });
 }
 
