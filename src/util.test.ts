@@ -39,10 +39,60 @@ describe("mergePlugins", () => {
   it("keeps distinct plugins apart, including same name from different vendors", () => {
     const plugins = mergePlugins([
       mk({ id: "a" }),
-      mk({ id: "b", name: "Pigments" }),
-      mk({ id: "c", name: "Pigments", vendor: "Other Co" }),
+      mk({ id: "b", name: "Pigments", bundleId: "com.arturia.pigments" }),
+      mk({ id: "c", name: "Pigments", vendor: "Other Co", bundleId: "com.other.pigments" }),
     ]);
     expect(plugins).toHaveLength(3);
+  });
+
+  it("merges installs whose vendor spellings differ only by case", () => {
+    // AU derives the vendor from AudioComponents ("discoDSP"); other formats
+    // fall back to a bundle-id segment ("discodsp").
+    const plugins = mergePlugins([
+      mk({ id: "a", format: "AU", name: "Discovery Pro", vendor: "discoDSP", bundleId: "" }),
+      mk({ id: "b", format: "VST3", name: "Discovery Pro", vendor: "discodsp", bundleId: "" }),
+    ]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].installs).toHaveLength(2);
+  });
+
+  it("merges installs sharing bundle id and name even when vendor wording differs", () => {
+    const plugins = mergePlugins([
+      mk({
+        id: "a",
+        format: "AU",
+        name: "Drumazon2",
+        vendor: "D16 Group Audio Software",
+        bundleId: "com.d16group.Drumazon2",
+      }),
+      mk({ id: "b", format: "VST3", name: "Drumazon2", vendor: "d16group", bundleId: "com.d16group.Drumazon2" }),
+    ]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].vendor).toBe("D16 Group Audio Software");
+  });
+
+  it("keeps same-name plugins from different vendors apart when bundle ids differ", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Pigments", vendor: "Arturia", bundleId: "com.arturia.pigments" }),
+      mk({ id: "b", name: "Pigments", vendor: "Other Co", bundleId: "com.other.pigments" }),
+    ]);
+    expect(plugins).toHaveLength(2);
+  });
+
+  it("keeps same vendor+name merged when bundle ids differ per format", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", format: "AU", name: "Diva", vendor: "u-he", bundleId: "com.u-he.Diva.au" }),
+      mk({ id: "b", format: "VST3", name: "Diva", vendor: "u-he", bundleId: "com.u-he.Diva.vst3" }),
+    ]);
+    expect(plugins).toHaveLength(1);
+  });
+
+  it("never unions on empty bundle ids", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Alpha", vendor: "One", bundleId: "" }),
+      mk({ id: "b", name: "Alpha", vendor: "Two", bundleId: "" }),
+    ]);
+    expect(plugins).toHaveLength(2);
   });
 
   it("sorts installs in canonical format order (AU, VST3, VST2, CLAP, AAX)", () => {
@@ -85,8 +135,8 @@ describe("mergePlugins", () => {
     const plugins = mergePlugins([
       mk({ id: "a", name: "zebra" }),
       mk({ id: "b", name: "Analog Lab V" }),
-      mk({ id: "c", name: "Pigments", vendor: "Zeta" }),
-      mk({ id: "d", name: "Pigments", vendor: "Alpha" }),
+      mk({ id: "c", name: "Pigments", vendor: "Zeta", bundleId: "com.zeta.pigments" }),
+      mk({ id: "d", name: "Pigments", vendor: "Alpha", bundleId: "com.alpha.pigments" }),
     ]);
     expect(plugins.map((p) => `${p.name}/${p.vendor}`)).toEqual([
       "Analog Lab V/Arturia",
