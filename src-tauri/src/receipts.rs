@@ -8,6 +8,8 @@ pub trait PkgUtil {
     /// Absolute prefix the package's file list is relative to (volume + install
     /// location, e.g. "/" or "/Applications"). `None` = unknown package or failure.
     fn install_root(&self, pkg_id: &str) -> Option<String>;
+    /// Every receipt on the system (`pkgutil --pkgs`).
+    fn all_packages(&self) -> Vec<String>;
 }
 
 pub struct RealPkgUtil;
@@ -56,8 +58,17 @@ impl PkgUtil for RealPkgUtil {
                 .map(|s| s.trim().to_string())
         };
         let volume = field("volume: ")?;
-        let location = field("install-location: ").unwrap_or_default();
+        // pkgutil prints "location: "; older receipts may use "install-location: ".
+        let location = field("location: ")
+            .or_else(|| field("install-location: "))
+            .unwrap_or_default();
         Some(join_root(&volume, &location))
+    }
+
+    fn all_packages(&self) -> Vec<String> {
+        Self::run(&["--pkgs"])
+            .map(|out| out.lines().map(str::to_string).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -100,6 +111,9 @@ mod tests {
         fn install_root(&self, _pkg_id: &str) -> Option<String> {
             None
         }
+        fn all_packages(&self) -> Vec<String> {
+            Vec::new()
+        }
     }
 
     #[test]
@@ -121,6 +135,9 @@ mod tests {
         }
         fn install_root(&self, _pkg_id: &str) -> Option<String> {
             None
+        }
+        fn all_packages(&self) -> Vec<String> {
+            Vec::new()
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::model::{Format, PluginBundle, PluginDetails, RemovalResult, Scope};
-use crate::receipts::{self, RealPkgUtil};
+use crate::receipts::{self, PkgUtil, RealPkgUtil};
 use crate::remover::{self, RealTrasher};
 use crate::reversal::{self, RealFs, RemovalPreview};
 use crate::scanner;
@@ -96,42 +96,115 @@ fn enrich_receipts(app: &AppHandle, ids: Vec<String>) -> Vec<(String, String)> {
         .unwrap_or_default()
 }
 
-/// Find companion applications and stream them as APP-format bundles: apps the
-/// plugins' installer packages wrote, plus same-name apps in the Applications
-/// folders. Apps inherit the linked plugin's vendor so they merge onto its row.
+/// `pkgutil --files`/`--pkg-info` fetched up front on a worker pool for a set
+/// of packages; implements [`PkgUtil`] so the pure reversal logic can consume
+/// it without knowing about threads.
+struct Prefetched {
+    files: BTreeMap<String, Option<Vec<String>>>,
+    roots: BTreeMap<String, Option<String>>,
+    all: Vec<String>,
+}
+
+impl PkgUtil for Prefetched {
+    fn file_info(&self, _path: &str) -> Option<Vec<String>> {
+        None
+    }
+    fn files(&self, pkg_id: &str) -> Option<Vec<String>> {
+        self.files.get(pkg_id).cloned().flatten()
+    }
+    fn install_root(&self, pkg_id: &str) -> Option<String> {
+        self.roots.get(pkg_id).cloned().flatten()
+    }
+    fn all_packages(&self) -> Vec<String> {
+        self.all.clone()
+    }
+}
+
+fn prefetch(pkgs: BTreeSet<String>, all: Vec<String>) -> Prefetched {
+    let queue = Arc::new(Mutex::new(pkgs.into_iter().collect::<Vec<_>>()));
+    let results = Arc::new(Mutex::new((BTreeMap::new(), BTreeMap::new())));
+    let mut handles = Vec::new();
+    for _ in 0..RECEIPT_WORKERS {
+        let queue = Arc::clone(&queue);
+        let results = Arc::clone(&results);
+        handles.push(std::thread::spawn(move || loop {
+            let Some(pkg) = queue.lock().unwrap().pop() else {
+                break;
+            };
+            let files = RealPkgUtil.files(&pkg);
+            let root = RealPkgUtil.install_root(&pkg);
+            let mut r = results.lock().unwrap();
+            r.0.insert(pkg.clone(), files);
+            r.1.insert(pkg, root);
+        }));
+    }
+    for h in handles {
+        let _ = h.join();
+    }
+    let (files, roots) = Arc::try_unwrap(results)
+        .map(|m| m.into_inner().unwrap())
+        .unwrap_or_default();
+    Prefetched { files, roots, all }
+}
+
+/// Expand a set of owning packages to their full receipt families.
+fn family_set(pkgs: impl IntoIterator<Item = String>, all: &[String]) -> BTreeSet<String> {
+    pkgs.into_iter()
+        .flat_map(|p| reversal::expand_family(&p, all))
+        .collect()
+}
+
+/// Find companion applications and stream them as APP-format bundles: apps
+/// written by any receipt in the plugins' package *families* (installers split
+/// one product into `.vst3`/`.standalone`/`.resources`/… receipts), plus
+/// same-name apps in the Applications folders — top-level or one vendor folder
+/// deep. Apps inherit the linked plugin's vendor so they merge onto its row.
 fn discover_apps(
     app: &AppHandle,
     plugins: &[(String, String, String)],
     owners: &[(String, String)],
 ) {
     let home = std::env::var("HOME").unwrap_or_default();
+    let all_pkgs = RealPkgUtil.all_packages();
     let vendor_of: BTreeMap<&str, &str> = plugins
         .iter()
         .map(|(id, _, vendor)| (id.as_str(), vendor.as_str()))
         .collect();
 
-    // (app path, vendor hint, package) — receipts first, then name matches.
-    let mut found: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
-    let mut seen_pkgs: BTreeSet<&str> = BTreeSet::new();
+    // Vendor hint per family package, from the plugin that led us to the family.
+    let mut vendor_of_pkg: BTreeMap<String, String> = BTreeMap::new();
     for (plugin_id, pkg) in owners {
-        if !seen_pkgs.insert(pkg.as_str()) {
-            continue;
-        }
         let vendor = vendor_of
             .get(plugin_id.as_str())
             .copied()
             .unwrap_or_default();
-        for path in reversal::apps_in(&reversal::package_paths(pkg, &RealPkgUtil)) {
+        for member in reversal::expand_family(pkg, &all_pkgs) {
+            vendor_of_pkg
+                .entry(member)
+                .or_insert_with(|| vendor.to_string());
+        }
+    }
+
+    let pre = prefetch(vendor_of_pkg.keys().cloned().collect(), all_pkgs);
+
+    // (app path → vendor hint, owning package)
+    let mut found: BTreeMap<String, (String, Option<String>)> = BTreeMap::new();
+    for (pkg, vendor) in &vendor_of_pkg {
+        for path in reversal::apps_in(&reversal::package_paths(pkg, &pre)) {
             found
                 .entry(path)
-                .or_insert((vendor.to_string(), Some(pkg.clone())));
+                .or_insert((vendor.clone(), Some(pkg.clone())));
         }
     }
     for (_, name, vendor) in plugins {
         for root in [format!("{home}/Applications"), "/Applications".to_string()] {
-            let candidate = format!("{root}/{name}.app");
-            if Path::new(&candidate).exists() {
-                found.entry(candidate).or_insert((vendor.clone(), None));
+            for candidate in [
+                format!("{root}/{name}.app"),
+                format!("{root}/{vendor}/{name}.app"),
+            ] {
+                if Path::new(&candidate).exists() {
+                    found.entry(candidate).or_insert((vendor.clone(), None));
+                }
             }
         }
     }
@@ -198,7 +271,12 @@ pub async fn removal_preview(removing: Vec<String>, bundles: Vec<OwnedBundle>) -
             .into_iter()
             .filter_map(|b| b.package_id.map(|p| (b.id, p)))
             .collect();
-        reversal::removal_preview(&removing, &all_owned, &RealPkgUtil, &RealFs)
+        // Prefetch the removal's package families in parallel; the pure logic
+        // then runs entirely against the cache.
+        let all_pkgs = RealPkgUtil.all_packages();
+        let owner_pkgs = removing.iter().filter_map(|p| all_owned.get(p)).cloned();
+        let pre = prefetch(family_set(owner_pkgs, &all_pkgs), all_pkgs);
+        reversal::removal_preview(&removing, &all_owned, &pre, &RealFs)
     })
     .await
     .unwrap_or_default()

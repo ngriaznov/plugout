@@ -24,32 +24,81 @@ pub fn package_paths(pkg_id: &str, pku: &dyn PkgUtil) -> Vec<String> {
         .collect()
 }
 
-/// Top-level `.app` bundles among a package's paths (the app itself, not files
-/// inside it): `/Applications/X.app`, `~/Applications/X.app`.
+/// Installers usually split one product into many receipts —
+/// `com.Arturia.ARP2600V3.{vst3,au,standalone,resources,…}`. The family prefix
+/// groups them: the id minus its last segment, required to keep at least three
+/// segments so a whole vendor (`com.arturia.*`) is never grouped.
+pub fn family_prefix(pkg_id: &str) -> Option<String> {
+    let cut = pkg_id.rfind('.')?;
+    let prefix = &pkg_id[..cut];
+    (prefix.matches('.').count() >= 2).then(|| format!("{prefix}."))
+}
+
+/// All receipts in `pkg_id`'s family (always includes `pkg_id` itself).
+pub fn expand_family(pkg_id: &str, all_pkgs: &[String]) -> BTreeSet<String> {
+    let mut family = BTreeSet::from([pkg_id.to_string()]);
+    if let Some(prefix) = family_prefix(pkg_id) {
+        family.extend(all_pkgs.iter().filter(|p| p.starts_with(&prefix)).cloned());
+    }
+    family
+}
+
+/// `.app` bundles among a package's paths, at any depth under an Applications
+/// folder: `/Applications/X.app`, `/Applications/Arturia/X.app`, `~/Applications/…`.
+/// Returns the app bundle path itself, not files inside it.
 pub fn apps_in(paths: &[String]) -> Vec<String> {
     let mut apps: BTreeSet<String> = BTreeSet::new();
     for p in paths {
-        if let Some(idx) = p.find("Applications/") {
-            let after = &p[idx + "Applications/".len()..];
-            if let Some(app) = after.split('/').next() {
-                if let Some(stem) = app.strip_suffix(".app") {
-                    if !stem.is_empty() {
-                        apps.insert(format!("{}{app}", &p[..idx + "Applications/".len()]));
-                    }
-                }
+        let Some(idx) = p.find("Applications/") else {
+            continue;
+        };
+        let base = &p[..idx + "Applications/".len()];
+        let mut acc = String::new();
+        for comp in p[base.len()..].split('/') {
+            if !acc.is_empty() {
+                acc.push('/');
+            }
+            acc.push_str(comp);
+            if comp.len() > 4 && comp.ends_with(".app") {
+                apps.insert(format!("{base}{acc}"));
+                break;
             }
         }
     }
     apps.into_iter().collect()
 }
 
-/// Roots under which support files may be offered for removal, relative to
-/// either Library root. Anything an installer wrote elsewhere is never touched.
+/// Known-safe roots under either Library root. Vendors also write directly to
+/// `Library/<Vendor>/…` (Arturia, UVI), so paths at least one level inside any
+/// Library directory are allowed unless the directory is system-critical.
 const ALLOWED_UNDER_LIBRARY: &[&str] = &[
     "Application Support/",
     "Preferences/",
     "Caches/",
     "Audio/Presets/",
+];
+
+/// Library subtrees never offered, regardless of receipts.
+const DENIED_UNDER_LIBRARY: &[&str] = &[
+    "Audio/", // plugin folders themselves (Presets excepted above)
+    "Frameworks/",
+    "Extensions/",
+    "SystemExtensions/",
+    "LaunchAgents/",
+    "LaunchDaemons/",
+    "PrivilegedHelperTools/",
+    "PreferencePanes/",
+    "StartupItems/",
+    "Security/",
+    "Keychains/",
+    "Fonts/",
+    "Input Methods/",
+    "QuickLook/",
+    "Screen Savers/",
+    "Services/",
+    "Spotlight/",
+    "WebServer/",
+    "Developer/",
 ];
 
 fn is_allowlisted(path: &str) -> bool {
@@ -59,10 +108,18 @@ fn is_allowlisted(path: &str) -> bool {
     let under_library = path
         .strip_prefix("/Library/")
         .or_else(|| path.split_once("/Library/").map(|(_, rest)| rest));
-    match under_library {
-        Some(rest) => ALLOWED_UNDER_LIBRARY.iter().any(|a| rest.starts_with(a)),
-        None => false,
+    let Some(rest) = under_library else {
+        return false;
+    };
+    if ALLOWED_UNDER_LIBRARY.iter().any(|a| rest.starts_with(a)) {
+        return true;
     }
+    if DENIED_UNDER_LIBRARY.iter().any(|d| rest.starts_with(d)) {
+        return false;
+    }
+    // Vendor-directory rule: allow contents of Library/<Vendor>/…, but never the
+    // vendor directory itself — only subtree-proven children roll up.
+    rest.contains('/') && !rest.ends_with('/')
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
@@ -117,27 +174,29 @@ pub fn removal_preview(
     pku: &dyn PkgUtil,
     fs: &dyn Fs,
 ) -> RemovalPreview {
-    // Packages involved in this removal.
-    let packages: BTreeSet<&String> = removing.iter().filter_map(|p| all_owned.get(p)).collect();
+    // Package families involved in this removal (one product = many receipts).
+    let all_pkgs = pku.all_packages();
+    let owner_pkgs: BTreeSet<&String> = removing.iter().filter_map(|p| all_owned.get(p)).collect();
 
-    // Exclusivity: drop packages that also own a bundle NOT being removed.
+    // Exclusivity per family: skip the whole family when any of its receipts
+    // owns a bundle that is staying installed.
     let mut skipped_shared = 0u32;
-    let exclusive: Vec<&String> = packages
-        .into_iter()
-        .filter(|pkg| {
-            let shared = all_owned
-                .iter()
-                .any(|(path, owner)| owner == *pkg && !removing.contains(path));
-            if shared {
-                skipped_shared += 1;
-            }
-            !shared
-        })
-        .collect();
+    let mut exclusive: BTreeSet<String> = BTreeSet::new();
+    for pkg in owner_pkgs {
+        let family = expand_family(pkg, &all_pkgs);
+        let shared = all_owned
+            .iter()
+            .any(|(path, owner)| family.contains(owner) && !removing.contains(path));
+        if shared {
+            skipped_shared += 1;
+        } else {
+            exclusive.extend(family);
+        }
+    }
 
     // Candidate paths: allowlisted, on disk, not part of the removal itself.
     let mut owned: BTreeSet<String> = BTreeSet::new();
-    for pkg in exclusive {
+    for pkg in &exclusive {
         for path in package_paths(pkg, pku) {
             let inside_removed = removing
                 .iter()
@@ -205,6 +264,9 @@ mod tests {
         fn install_root(&self, pkg: &str) -> Option<String> {
             self.roots.get(pkg).cloned()
         }
+        fn all_packages(&self) -> Vec<String> {
+            self.files.keys().cloned().collect()
+        }
     }
 
     /// Every listed path exists; directories are paths listed with children.
@@ -262,17 +324,98 @@ mod tests {
     }
 
     #[test]
-    fn apps_in_finds_top_level_apps_only() {
+    fn apps_in_finds_apps_at_any_depth_under_applications() {
         let paths = vec![
             "/Applications/Serum.app".to_string(),
             "/Applications/Serum.app/Contents/Info.plist".to_string(),
+            "/Applications/Arturia/ARP 2600 V3.app/Contents".to_string(),
             "/Users/me/Applications/Mini.app/Contents/MacOS/mini".to_string(),
+            "/Applications/Arturia".to_string(), // bare vendor dir: not an app
             "/Library/Application Support/X/notanapp".to_string(),
         ];
         assert_eq!(
             apps_in(&paths),
-            vec!["/Applications/Serum.app", "/Users/me/Applications/Mini.app"]
+            vec![
+                "/Applications/Arturia/ARP 2600 V3.app",
+                "/Applications/Serum.app",
+                "/Users/me/Applications/Mini.app"
+            ]
         );
+    }
+
+    #[test]
+    fn family_prefix_needs_three_segments() {
+        assert_eq!(
+            family_prefix("com.Arturia.ARP2600V3.vst3").as_deref(),
+            Some("com.Arturia.ARP2600V3.")
+        );
+        assert_eq!(family_prefix("com.soundtoys.all"), None); // would group the vendor
+        assert_eq!(family_prefix("nodots"), None);
+    }
+
+    #[test]
+    fn expand_family_groups_sibling_receipts() {
+        let all = vec![
+            "com.Arturia.ARP2600V3.vst3".to_string(),
+            "com.Arturia.ARP2600V3.standalone".to_string(),
+            "com.Arturia.ARP2600V3.resources".to_string(),
+            "com.Arturia.AcidV.vst3".to_string(),
+        ];
+        let family = expand_family("com.Arturia.ARP2600V3.vst3", &all);
+        assert!(family.contains("com.Arturia.ARP2600V3.standalone"));
+        assert!(family.contains("com.Arturia.ARP2600V3.resources"));
+        assert!(!family.contains("com.Arturia.AcidV.vst3"));
+    }
+
+    #[test]
+    fn family_shared_with_surviving_format_is_skipped() {
+        // ARP's VST3 is removed but its AU stays: the whole family (including
+        // the standalone/resources receipts) must be kept back.
+        let pku = MockPku {
+            files: HashMap::from([
+                ("com.a.arp.vst3".to_string(), vec![]),
+                ("com.a.arp.au".to_string(), vec![]),
+                (
+                    "com.a.arp.resources".to_string(),
+                    vec!["Library/A/ARP/presets".to_string()],
+                ),
+            ]),
+            roots: HashMap::new(),
+        };
+        let fs = MockFs::new(&["/Library/A/ARP/presets"]);
+        let all_owned = BTreeMap::from([
+            ("/L/VST3/ARP.vst3".to_string(), "com.a.arp.vst3".to_string()),
+            (
+                "/L/Components/ARP.component".to_string(),
+                "com.a.arp.au".to_string(),
+            ),
+        ]);
+        let preview = removal_preview(&set(&["/L/VST3/ARP.vst3"]), &all_owned, &pku, &fs);
+        assert!(preview.support_files.is_empty());
+        assert_eq!(preview.skipped_shared, 1);
+
+        // Removing both formats frees the family.
+        let preview = removal_preview(
+            &set(&["/L/VST3/ARP.vst3", "/L/Components/ARP.component"]),
+            &all_owned,
+            &pku,
+            &fs,
+        );
+        assert_eq!(preview.support_files.len(), 1);
+        assert_eq!(preview.support_files[0].path, "/Library/A/ARP/presets");
+    }
+
+    #[test]
+    fn vendor_directory_rule() {
+        assert!(is_allowlisted("/Library/Arturia/ARP 2600 V3/presets.bank"));
+        assert!(is_allowlisted("/Users/me/Library/UVI/Falcon/sounds"));
+        assert!(!is_allowlisted("/Library/Arturia")); // vendor root itself: never whole
+        assert!(!is_allowlisted("/Library/Frameworks/Vendor.framework/f"));
+        assert!(!is_allowlisted("/Library/LaunchDaemons/com.x.plist"));
+        assert!(!is_allowlisted("/Library/Audio/Plug-Ins/VST3/X.vst3"));
+        assert!(is_allowlisted(
+            "/Library/Audio/Presets/Vendor/preset.aupreset"
+        ));
     }
 
     #[test]
@@ -421,6 +564,30 @@ mod tests {
             .map(|f| f.path.as_str())
             .collect();
         assert_eq!(paths, vec!["/Library/Application Support/Shared/mine"]);
+    }
+
+    /// Real-system probe (requires installed Arturia plugins; not run in CI):
+    /// `cargo test real_system -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn real_system_discovery_probe() {
+        use crate::receipts::RealPkgUtil;
+        let plugin = "/Library/Audio/Plug-Ins/VST3/ARP 2600 V3.vst3";
+        let owner = crate::receipts::owner_of(plugin, &RealPkgUtil).expect("owner");
+        let all = RealPkgUtil.all_packages();
+        let family = expand_family(&owner, &all);
+        println!("owner={owner} family={family:?}");
+        assert!(family.len() > 1, "family should have sibling receipts");
+
+        let apps: Vec<String> = family
+            .iter()
+            .flat_map(|p| apps_in(&package_paths(p, &RealPkgUtil)))
+            .collect();
+        println!("apps={apps:?}");
+        assert!(
+            apps.iter().any(|a| a.contains("ARP 2600 V3.app")),
+            "should find the nested standalone app"
+        );
     }
 
     #[test]
