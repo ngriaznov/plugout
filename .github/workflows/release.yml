@@ -54,7 +54,33 @@ jobs:
 
       - name: Build universal macOS bundle
         if: steps.check_tag.outputs.exists == 'false'
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         run: npm run tauri build -- --target universal-apple-darwin
+
+      - name: Write updater manifest
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          BUNDLE_DIR="src-tauri/target/universal-apple-darwin/release/bundle/macos"
+          TARBALL=$(ls "$BUNDLE_DIR"/*.app.tar.gz)
+          SIGNATURE=$(cat "$BUNDLE_DIR"/*.app.tar.gz.sig)
+          VERSION="${{ steps.version.outputs.version }}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}/$(basename "$TARBALL")"
+          jq -n \
+            --arg version "$VERSION" \
+            --arg pub_date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg url "$URL" \
+            --arg signature "$SIGNATURE" \
+            '{
+              version: $version,
+              pub_date: $pub_date,
+              platforms: {
+                "darwin-aarch64": { url: $url, signature: $signature },
+                "darwin-x86_64": { url: $url, signature: $signature }
+              }
+            }' > latest.json
+          cat latest.json
 
       - name: Publish release
         if: steps.check_tag.outputs.exists == 'false'
@@ -62,5 +88,8 @@ jobs:
         with:
           tag_name: "v${{ steps.version.outputs.version }}"
           name: "plugout v${{ steps.version.outputs.version }}"
-          files: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          files: |
+            src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
+            latest.json
           generate_release_notes: true

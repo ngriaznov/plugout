@@ -4,12 +4,14 @@ import type { UnlistenFn } from "@tauri-apps/api/event";
 import { startScan, removeItems, onScanBatch, onScanDone, onReceiptUpdate } from "./api";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
+import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
 import { mergePlugins, sortPlugins, type SortDir, type SortKey } from "./util";
 import { Sidebar } from "./components/Sidebar";
 import { PluginList } from "./components/PluginList";
 import { Inspector } from "./components/Inspector";
 import { ActionBar } from "./components/ActionBar";
 import { ConfirmModal } from "./components/ConfirmModal";
+import { UpdatePill } from "./components/UpdatePill";
 
 export default function App() {
   const [bundles, setBundles] = useState<PluginBundle[]>([]);
@@ -24,7 +26,31 @@ export default function App() {
   const [results, setResults] = useState<RemovalResult[] | null>(null);
   const [themePref, setThemePref] = useState<ThemePref>(getPref);
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
+  const [update, setUpdate] = useState<UpdateState>({ phase: "idle" });
   const toastTimer = useRef<number | null>(null);
+
+  // Quiet update check once the launch dust settles; failures stay silent —
+  // an unreachable update endpoint should never bother the user.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      checkForUpdate()
+        .then((version) => version && setUpdate({ phase: "available", version }))
+        .catch(() => {});
+    }, 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  async function startUpdate() {
+    if (update.phase !== "available") return;
+    const { version } = update;
+    setUpdate({ phase: "downloading", version, percent: null });
+    try {
+      await downloadAndInstall((percent) => setUpdate({ phase: "downloading", version, percent }));
+      setUpdate({ phase: "ready", version });
+    } catch (e) {
+      setUpdate({ phase: "error", message: String(e) });
+    }
+  }
 
   const changeSort = (key: SortKey) =>
     setSort((s) =>
@@ -177,6 +203,7 @@ export default function App() {
             )}
           </div>
           <div className="spacer" />
+          <UpdatePill state={update} onDownload={startUpdate} onRestart={restartApp} />
           <button className="ghost small" onClick={rescan} disabled={loading}>
             Rescan
           </button>

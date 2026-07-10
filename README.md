@@ -54,6 +54,11 @@ xattr -cr /Applications/plugout.app
 
 or right-click the app → Open → Open.
 
+**Updates are automatic** from then on: the app checks this repo's releases at
+launch, and when a new version exists a pill appears in the toolbar — one click
+downloads it, one more restarts into the new version. Updates are signed and
+verified against a key embedded in the app.
+
 ## How it works
 
 The backend is Rust. A scan walks `Components`, `VST`, `VST3`, `CLAP` under both

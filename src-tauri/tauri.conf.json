@@ -31,6 +31,15 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMxRjlDNDlCM0NGOTkyNDUKUldSRmt2azhtOFQ1TVhvU1ZSc3FEVHNMUlRkcURra1dwVWJiMGM2ZWxVOVNuekQ3d3MvUGdXekkK",
+      "endpoints": [
+        "https://github.com/ngriaznov/plugout/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

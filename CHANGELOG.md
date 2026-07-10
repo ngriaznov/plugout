@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Auto-update from GitHub releases: signed updates, checked quietly at launch,
+  installed from a toolbar pill with one click and a restart.
+
 ## 0.1.1
 
 - New app icon: an O sliced through by a diagonal line.
