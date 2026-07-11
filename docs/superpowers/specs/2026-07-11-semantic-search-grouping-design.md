@@ -35,9 +35,13 @@ crate (`tern-engine`) compiles natively (verified: scalar kernel path exists beh
   indexing never blocks the UI.
 - `semantic_search(query: String) -> Vec<SearchHit>` — `SearchHit { id, score }`.
   Embeds the query, scores by dot product (vectors are normalized), returns hits
-  with `score >= 0.30`, sorted desc, capped at 8. Constants live in one place in
-  Rust; 0.30 is calibrated from measurement (query→name scores run low: "reverb"
-  vs a reverb plugin ≈ 0.23–0.39).
+  with `score >= 0.25`, sorted desc, capped at 16 — a loose candidate set, not a
+  relevance judgment. Constants live in one place in Rust. Measurement on a real
+  library showed there's no fixed score that separates signal from noise: related
+  gear can score as low as 0.25 while junk reaches 0.36. Final gating happens in
+  the frontend, relative to the best hit that survives substring exclusion (see
+  Frontend below), where the query's own top substring match — noise the gate
+  should ignore — is already out of the running.
 
 ### Frontend
 
@@ -47,10 +51,20 @@ crate (`tern-engine`) compiles natively (verified: scalar kernel path exists beh
   `"{name} {vendor} {category label}"` — and fires `indexSearch` (not awaited;
   errors logged and ignored).
 - Query flow: when `query.length >= 3`, debounce ~150 ms, call `semanticSearch`.
-  Result ids that are NOT already substring matches become the "related" set.
+  Result ids that are NOT already substring matches become candidates for the
+  "related" set.
+- Adaptive relative gate (`gateHits` in `util.ts`): the Rust candidate set is
+  loose by design, so the frontend gates it relative to its own best surviving
+  hit — after substring exclusion and scope filtering, not before. Keep hits
+  scoring at least 70% (`GATE_RATIO`) of the best surviving hit, capped at 8
+  (`GATE_CAP`). Calibrated on a real library where related-but-differently-named
+  gear scores 0.25–0.45 and junk can reach 0.36, so no fixed score threshold
+  works — a weak best hit means the query itself is a weak match and the loose
+  backend floor is left alone; a strong best hit tightens the gate so barely-
+  related tail matches don't ride along.
 - UI: PluginList shows substring matches as today; below them, a divider
-  ("Related") followed by the merged related plugins. Empty related set → no
-  divider. Any backend error → substring-only behavior, no error UI.
+  ("Related") followed by the merged, gated related plugins. Empty related set
+  → no divider. Any backend error → substring-only behavior, no error UI.
 
 ## 2. Grouping fixes (src/util.ts, `mergePlugins`)
 
