@@ -1,0 +1,33 @@
+[package]
+name        = "tern-engine"
+version     = "0.1.0"
+edition     = "2021"
+license     = "MIT"
+description = "Vendored ternlight inference engine (native build). Upstream: github.com/soycaporal/ternlight @ f67b04f."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Embedding-format Cargo features. Mutually exclusive — enforced at compile time
+# via compile_error!() in src/lib.rs. Exactly one must be selected per build.
+# See docs/tern-inference-engine.md "Build targets" for the spec.
+[features]
+default     = []
+emb_fp32    = []
+emb_int8    = []
+emb_ternary = []
+emb_int4    = []   # spec'd in wire format (id=3); no current ship target — leave gate live for future packs
+
+[dependencies]
+wasm-bindgen = "0.2"
+# HF tokenizers — pure-Rust regex (no `onig` C dep), no `esaxx_fast`, `unstable_wasm` enables
+# the wasm32 target. rayon is only used by encode_batch(), which we never call.
+tokenizers   = { version = "0.19", default-features = false, features = ["unstable_wasm", "fancy-regex"] }
+# SHA256 for verifying the trailing 32 bytes of the .bin.
+sha2         = { version = "0.10", default-features = false }
+# erff for GELU — matches torch's `F.gelu(approximate='none')` (the default).
+libm         = { version = "0.2", default-features = false }
+
+[build-dependencies]
+ureq = "2"
+sha2 = { version = "0.10", default-features = false }
