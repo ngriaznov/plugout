@@ -29,7 +29,10 @@ pub fn parse_info_plist(path: &Path) -> PluginMeta {
         .or_else(|| get("CFBundleVersion"))
         .unwrap_or_default();
     let vendor = audio_component_vendor(dict).unwrap_or_else(|| vendor_from_bundle_id(&bundle_id));
-    let category = au_type(dict).and_then(|t| Category::from_au_type(&t));
+    let category = first_audio_component(dict)
+        .and_then(|c| c.get("type"))
+        .and_then(|v| v.as_string())
+        .and_then(Category::from_au_type);
     let copyright = get("NSHumanReadableCopyright").filter(|s| !s.is_empty());
 
     PluginMeta {
@@ -54,15 +57,6 @@ fn audio_component_vendor(dict: &plist::Dictionary) -> Option<String> {
     let name = first_audio_component(dict)?.get("name")?.as_string()?;
     let vendor = name.split(':').next()?.trim();
     (!vendor.is_empty()).then(|| vendor.to_string())
-}
-
-fn au_type(dict: &plist::Dictionary) -> Option<String> {
-    Some(
-        first_audio_component(dict)?
-            .get("type")?
-            .as_string()?
-            .to_string(),
-    )
 }
 
 fn vendor_from_bundle_id(bundle_id: &str) -> String {
@@ -217,7 +211,7 @@ pub fn scan_applications(roots: &[PathBuf], plugins: &[PluginBundle]) -> Vec<Plu
                 },
                 package_id: None, // receipts trail in via receipt:update
                 category: None,   // apps aren't classified as instrument/effect
-                copyright: meta.copyright.clone(),
+                copyright: meta.copyright,
             });
         }
     }

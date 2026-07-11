@@ -73,8 +73,9 @@ verified against a key embedded in the app.
 
 The backend is Rust. A scan walks `Components`, `VST`, `VST3`, `CLAP` under both
 `Library/Audio/Plug-Ins` roots plus the Avid AAX directory, reads each bundle's
-`Info.plist` for name, vendor, version and bundle ID, then walks the Applications
-folders for companion apps linked to those plugins — all streamed to the UI over
+`Info.plist` for name, vendor, version, bundle ID, category (the AU component type)
+and copyright, then walks the Applications folders for companion apps linked to those
+plugins — all streamed to the UI over
 Tauri events within the first seconds. Installer receipts are linked afterwards in
 the background (`pkgutil --file-info` is slow, so it never blocks the list; a
 "linking installers…" indicator shows while it runs). When you remove something,
