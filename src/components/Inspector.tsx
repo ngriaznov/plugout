@@ -24,7 +24,7 @@ function InstallCard({
       <header className="install-head">
         <input
           type="checkbox"
-          aria-label={`Select ${bundle.format} install`}
+          aria-label={`Select ${bundle.scope} ${bundle.format} install`}
           checked={checked}
           onChange={onToggle}
         />

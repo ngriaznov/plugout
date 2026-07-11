@@ -57,4 +57,16 @@ describe("Inspector install selection", () => {
     await userEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(onToggle).toHaveBeenCalledWith("v31");
   });
+
+  it("labels checkboxes distinctly for same-format installs in different scopes", () => {
+    const plugin = mergePlugins([
+      mk({ id: "au-sys", format: "AU", scope: "system" }),
+      mk({ id: "au-usr", format: "AU", scope: "user" }),
+    ])[0];
+    render(
+      <Inspector plugin={plugin} selected={new Set()} onToggleInstall={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByLabelText("Select user AU install")).toBeInTheDocument();
+    expect(screen.getByLabelText("Select system AU install")).toBeInTheDocument();
+  });
 });
