@@ -224,7 +224,7 @@ pub async fn index_search(
     .map_err(|e| e.to_string())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn semantic_search(
     state: tauri::State<'_, crate::search::SearchIndex>,
     query: String,
