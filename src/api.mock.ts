@@ -131,3 +131,6 @@ export const mockListen = <T>(event: string, cb: (payload: T) => void): Promise<
     if (i >= 0) pool.splice(i, 1);
   });
 };
+
+export const mockIndexSearch = async (): Promise<void> => {};
+export const mockSemanticSearch = async (): Promise<{ id: string; score: number }[]> => [];

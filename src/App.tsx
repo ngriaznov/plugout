@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Format, Scope, Plugin, PluginBundle, RemovalResult } from "./types";
+import { CATEGORY_LABELS } from "./types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { startScan, removeItems, onScanBatch, onScanDone, onReceiptUpdate, onEnrichDone } from "./api";
+import { startScan, removeItems, onScanBatch, onScanDone, onReceiptUpdate, onEnrichDone, indexSearch } from "./api";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
@@ -119,6 +120,19 @@ export default function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [confirming]);
+
+  // Feed the semantic-search index once a scan settles. Failures are logged
+  // and swallowed — search degrades to substring-only.
+  useEffect(() => {
+    if (loading || bundles.length === 0) return;
+    const docs = bundles.map((b) => ({
+      id: b.id,
+      text: `${b.name} ${b.vendor}${b.category ? ` ${CATEGORY_LABELS[b.category]}` : ""}`,
+    }));
+    indexSearch(docs).catch((e) => console.warn("semantic index failed", e));
+    // Re-index only when a scan completes, not on receipt enrichment churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   async function doRemove(extraPaths: string[]) {
     setBusy(true);

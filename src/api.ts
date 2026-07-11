@@ -8,6 +8,8 @@ import {
   mockRemoveItems,
   mockRevealInFinder,
   mockListen,
+  mockIndexSearch,
+  mockSemanticSearch,
 } from "./api.mock";
 
 // Outside a Tauri window (plain `vite` in a browser) fall back to the mock
@@ -30,6 +32,20 @@ export const removalPreview = (removing: string[], bundles: PluginBundle[]) => {
     ? invoke<RemovalPreview>("removal_preview", { removing, bundles: owned })
     : mockRemovalPreview(removing);
 };
+
+// Semantic search (vendored ternlight model in the Rust backend)
+export interface SearchDoc {
+  id: string;
+  text: string;
+}
+export interface SearchHit {
+  id: string;
+  score: number;
+}
+export const indexSearch = (docs: SearchDoc[]) =>
+  isTauri ? invoke<void>("index_search", { docs }) : mockIndexSearch();
+export const semanticSearch = (query: string) =>
+  isTauri ? invoke<SearchHit[]>("semantic_search", { query }) : mockSemanticSearch();
 
 // Scan events (emitted by start_scan, off the main thread)
 export interface ReceiptUpdate {
