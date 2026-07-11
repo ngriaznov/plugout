@@ -36,7 +36,10 @@ pub fn dot(a: &[f32], b: &[f32]) -> f32 {
 pub fn top_hits(index: &[(String, Vec<f32>)], query: &[f32]) -> Vec<SearchHit> {
     let mut hits: Vec<SearchHit> = index
         .iter()
-        .map(|(id, v)| SearchHit { id: id.clone(), score: dot(v, query) })
+        .map(|(id, v)| SearchHit {
+            id: id.clone(),
+            score: dot(v, query),
+        })
         .filter(|h| h.score >= MIN_SCORE)
         .collect();
     hits.sort_by(|a, b| b.score.total_cmp(&a.score));
@@ -49,7 +52,10 @@ mod tests {
     use super::*;
 
     fn idx(entries: &[(&str, [f32; 2])]) -> Vec<(String, Vec<f32>)> {
-        entries.iter().map(|(id, v)| (id.to_string(), v.to_vec())).collect()
+        entries
+            .iter()
+            .map(|(id, v)| (id.to_string(), v.to_vec()))
+            .collect()
     }
 
     #[test]
