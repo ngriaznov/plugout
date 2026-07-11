@@ -17,6 +17,7 @@ interface Props {
   onToggleAll: () => void;
   onRowClick: (p: Plugin) => void;
   onClearSearch: () => void;
+  related?: Plugin[];
 }
 
 function TriCheckbox({
@@ -88,6 +89,44 @@ export function PluginList(p: Props) {
   const allChecked = allIds.length > 0 && allIds.every((id) => p.selected.has(id));
   const someChecked = allIds.some((id) => p.selected.has(id));
 
+  const renderRow = (pl: Plugin) => {
+    const selCount = pl.installs.filter((b) => p.selected.has(b.id)).length;
+    return (
+      <tr
+        key={pl.key}
+        className={pl.key === p.inspectedKey ? "sel" : ""}
+        onClick={() => p.onRowClick(pl)}
+        onMouseEnter={() => prefetchDetails(pl)}
+      >
+        <td className="c-check" onClick={(e) => e.stopPropagation()}>
+          <TriCheckbox
+            checked={selCount === pl.installs.length}
+            indeterminate={selCount > 0 && selCount < pl.installs.length}
+            onChange={() => p.onTogglePlugin(pl)}
+            label={`Select ${pl.name}`}
+          />
+        </td>
+        <td className="c-name">
+          <div className="name">{pl.name}</div>
+          <div className="vendor">{pl.vendor}</div>
+        </td>
+        <td className="c-vendor">{pl.vendor}</td>
+        <td className="c-chips">
+          {pl.installs.map((b) => (
+            <FormatChip
+              key={b.id}
+              format={b.format}
+              selected={p.selected.has(b.id)}
+              onToggle={() => p.onToggleInstall(b.id)}
+            />
+          ))}
+        </td>
+        <td className="c-version">{pl.version || "—"}</td>
+        <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
+      </tr>
+    );
+  };
+
   return (
     <table className="table">
       <thead>
@@ -109,44 +148,16 @@ export function PluginList(p: Props) {
       </thead>
       <tbody>
         {p.loading && p.plugins.length === 0 && <SkeletonRows />}
-        {p.plugins.map((pl) => {
-          const selCount = pl.installs.filter((b) => p.selected.has(b.id)).length;
-          return (
-            <tr
-              key={pl.key}
-              className={pl.key === p.inspectedKey ? "sel" : ""}
-              onClick={() => p.onRowClick(pl)}
-              onMouseEnter={() => prefetchDetails(pl)}
-            >
-              <td className="c-check" onClick={(e) => e.stopPropagation()}>
-                <TriCheckbox
-                  checked={selCount === pl.installs.length}
-                  indeterminate={selCount > 0 && selCount < pl.installs.length}
-                  onChange={() => p.onTogglePlugin(pl)}
-                  label={`Select ${pl.name}`}
-                />
-              </td>
-              <td className="c-name">
-                <div className="name">{pl.name}</div>
-                <div className="vendor">{pl.vendor}</div>
-              </td>
-              <td className="c-vendor">{pl.vendor}</td>
-              <td className="c-chips">
-                {pl.installs.map((b) => (
-                  <FormatChip
-                    key={b.id}
-                    format={b.format}
-                    selected={p.selected.has(b.id)}
-                    onToggle={() => p.onToggleInstall(b.id)}
-                  />
-                ))}
-              </td>
-              <td className="c-version">{pl.version || "—"}</td>
-              <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
+        {p.plugins.map(renderRow)}
+        {p.related && p.related.length > 0 && (
+          <>
+            <tr className="related-divider">
+              <td colSpan={6}>Related matches</td>
             </tr>
-          );
-        })}
-        {!p.loading && p.plugins.length === 0 && (
+            {p.related.map(renderRow)}
+          </>
+        )}
+        {!p.loading && p.plugins.length === 0 && !(p.related && p.related.length > 0) && (
           <tr>
             <td colSpan={6} className="empty">
               <div className="empty-state">

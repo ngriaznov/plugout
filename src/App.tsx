@@ -2,7 +2,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Format, Scope, Plugin, PluginBundle, RemovalResult } from "./types";
 import { CATEGORY_LABELS } from "./types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { startScan, removeItems, onScanBatch, onScanDone, onReceiptUpdate, onEnrichDone, indexSearch } from "./api";
+import {
+  startScan,
+  removeItems,
+  onScanBatch,
+  onScanDone,
+  onReceiptUpdate,
+  onEnrichDone,
+  indexSearch,
+  semanticSearch,
+} from "./api";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
@@ -157,6 +166,45 @@ export default function App() {
     [bundles, formatFilter, scopeFilter, query],
   );
 
+  const [relatedHits, setRelatedHits] = useState<Map<string, number>>(new Map());
+
+  // Semantic hits trail the substring filter: debounce the query, embed it in
+  // the backend, keep scores per bundle id. Backend failure ⇒ empty ⇒ the UI
+  // silently stays substring-only.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 3) {
+      setRelatedHits(new Map());
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      semanticSearch(q).then(
+        (hits) => !cancelled && setRelatedHits(new Map(hits.map((h) => [h.id, h.score]))),
+        () => !cancelled && setRelatedHits(new Map()),
+      );
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [query]);
+
+  const related = useMemo(() => {
+    if (relatedHits.size === 0 || query.trim().length < 3) return [];
+    const ql = query.toLowerCase();
+    const candidates = bundles.filter(
+      (b) =>
+        relatedHits.has(b.id) &&
+        !`${b.name} ${b.vendor}`.toLowerCase().includes(ql) &&
+        (formatFilter === "ALL" || b.format === formatFilter) &&
+        (scopeFilter === "ALL" || b.scope === scopeFilter),
+    );
+    const merged = mergePlugins(candidates);
+    const score = (p: Plugin) => Math.max(...p.installs.map((b) => relatedHits.get(b.id) ?? 0));
+    return merged.sort((a, b) => score(b) - score(a));
+  }, [bundles, relatedHits, query, formatFilter, scopeFilter]);
+
   const plugins = useMemo(
     () => sortPlugins(mergePlugins(visible), sort.key, sort.dir),
     [visible, sort],
@@ -248,6 +296,7 @@ export default function App() {
               onToggleAll={toggleAll}
               onRowClick={(p) => setInspectedKey((k) => (k === p.key ? null : p.key))}
               onClearSearch={() => setQuery("")}
+              related={related}
             />
           </div>
           {inspected && <Inspector plugin={inspected} onClose={() => setInspectedKey(null)} />}

@@ -186,3 +186,23 @@ describe("PluginList empty state", () => {
     expect(screen.queryByText("No plugins found")).not.toBeInTheDocument();
   });
 });
+
+describe("related results", () => {
+  it("renders a divider and related rows when related plugins are present", () => {
+    const related = mergePlugins([mk({ id: "r1", name: "ValhallaVintageVerb", vendor: "Valhalla DSP" })]);
+    render(<PluginList {...baseProps()} plugins={mergePlugins([mk({ id: "a" })])} related={related} />);
+    expect(screen.getByText("Related matches")).toBeInTheDocument();
+    expect(screen.getByText("ValhallaVintageVerb")).toBeInTheDocument();
+  });
+
+  it("renders no divider when there are no related plugins", () => {
+    render(<PluginList {...baseProps()} plugins={mergePlugins([mk({ id: "a" })])} />);
+    expect(screen.queryByText("Related matches")).not.toBeInTheDocument();
+  });
+
+  it("keeps the empty state only when both lists are empty", () => {
+    const related = mergePlugins([mk({ id: "r1", name: "ValhallaVintageVerb", vendor: "Valhalla DSP" })]);
+    render(<PluginList {...baseProps()} query="reverb" related={related} />);
+    expect(screen.queryByText(/No plugins match/)).not.toBeInTheDocument();
+  });
+});
