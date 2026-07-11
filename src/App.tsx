@@ -193,14 +193,19 @@ export default function App() {
   const related = useMemo(() => {
     if (relatedHits.size === 0 || query.trim().length < 3) return [];
     const ql = query.toLowerCase();
-    const candidates = bundles.filter(
-      (b) =>
-        relatedHits.has(b.id) &&
-        !`${b.name} ${b.vendor}`.toLowerCase().includes(ql) &&
-        (formatFilter === "ALL" || b.format === formatFilter) &&
-        (scopeFilter === "ALL" || b.scope === scopeFilter),
+    const inScope = (b: PluginBundle) =>
+      (formatFilter === "ALL" || b.format === formatFilter) &&
+      (scopeFilter === "ALL" || b.scope === scopeFilter);
+    const matchesText = (b: PluginBundle) => `${b.name} ${b.vendor}`.toLowerCase().includes(ql);
+    const semanticOnly = new Set(
+      bundles.filter((b) => relatedHits.has(b.id) && !matchesText(b) && inScope(b)).map((b) => b.id),
     );
-    const merged = mergePlugins(candidates);
+    if (semanticOnly.size === 0) return [];
+    // Merge semantic hits TOGETHER with the visible bundles so cross-format
+    // identity bridges (shared bundle id) see every install of a product; a
+    // product with any substring-matched install is already in the main list.
+    const union = bundles.filter((b) => semanticOnly.has(b.id) || (inScope(b) && matchesText(b)));
+    const merged = mergePlugins(union).filter((p) => p.installs.every((b) => semanticOnly.has(b.id)));
     const score = (p: Plugin) => Math.max(...p.installs.map((b) => relatedHits.get(b.id) ?? 0));
     return merged.sort((a, b) => score(b) - score(a));
   }, [bundles, relatedHits, query, formatFilter, scopeFilter]);

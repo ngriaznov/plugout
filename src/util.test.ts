@@ -237,6 +237,13 @@ describe("mergePlugins", () => {
     expect(plugins).toHaveLength(1);
     expect(plugins[0].name).toBe("Kontakt 7");
   });
+
+  it("bridges vendor spellings via shared bundle id only within one call", () => {
+    const au = mk({ id: "au", format: "AU", name: "Decimort 2", vendor: "D16 Group Audio Software", bundleId: "com.d16group.decimort2" });
+    const v3 = mk({ id: "v3", format: "VST3", name: "Decimort 2", vendor: "d16group", bundleId: "com.d16group.decimort2" });
+    expect(mergePlugins([au, v3])).toHaveLength(1); // together: bridged
+    expect(mergePlugins([au])[0].key).not.toBe(mergePlugins([v3])[0].key); // apart: different keys
+  });
 });
 
 describe("compareVersions", () => {
