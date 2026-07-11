@@ -215,7 +215,8 @@ export default function App() {
     [visible, sort],
   );
   const allPluginCount = useMemo(() => mergePlugins(bundles).length, [bundles]);
-  const inspected = plugins.find((p) => p.key === inspectedKey) ?? null;
+  const inspected =
+    plugins.find((p) => p.key === inspectedKey) ?? related.find((p) => p.key === inspectedKey) ?? null;
 
   const toggleInstall = (id: string) =>
     setSelected((s) => {
