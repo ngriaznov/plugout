@@ -218,7 +218,7 @@ pub async fn index_search(
             .into_iter()
             .map(|d| (d.id, tern_engine::embed(&d.text)))
             .collect();
-        *index.lock().unwrap() = vectors;
+        *index.lock().unwrap_or_else(|e| e.into_inner()) = vectors;
     })
     .await
     .map_err(|e| e.to_string())
@@ -230,7 +230,7 @@ pub fn semantic_search(
     query: String,
 ) -> Vec<crate::search::SearchHit> {
     let q = tern_engine::embed(&query);
-    crate::search::top_hits(&state.0.lock().unwrap(), &q)
+    crate::search::top_hits(&state.0.lock().unwrap_or_else(|e| e.into_inner()), &q)
 }
 
 #[cfg(test)]
