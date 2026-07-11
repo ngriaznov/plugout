@@ -163,6 +163,27 @@ describe("mergePlugins", () => {
     expect(p.category).toBeNull();
     expect(p.copyright).toBeNull();
   });
+
+  it("merges vendor spelling variants (sumu: 'Madrona Labs' vs 'madronalabs')", () => {
+    const plugins = mergePlugins([
+      mk({ id: "au", format: "AU", name: "sumu", vendor: "Madrona Labs",
+           bundleId: "com.madronalabs.vst3plugin.sumu.audiounit" }),
+      mk({ id: "v3", format: "VST3", name: "Sumu", vendor: "madronalabs",
+           bundleId: "com.madronalabs.vst3.sumu" }),
+    ]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].installs).toHaveLength(2);
+  });
+
+  it("merges punctuation and spacing name variants", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", format: "AU", name: "TAL-Reverb-4", vendor: "TAL Software" }),
+      mk({ id: "b", format: "VST3", name: "TAL Reverb 4", vendor: "TAL Software" }),
+      mk({ id: "c", format: "AU", name: "Serum 2", vendor: "Xfer Records", bundleId: "com.xfer.serum2" }),
+      mk({ id: "d", format: "VST3", name: "Serum2", vendor: "Xfer Records", bundleId: "com.xfer.serum2" }),
+    ]);
+    expect(plugins).toHaveLength(2);
+  });
 });
 
 describe("compareVersions", () => {
