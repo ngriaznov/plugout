@@ -35,6 +35,30 @@ impl Format {
     }
 }
 
+/// What a plugin does, when the bundle tells us. Derived from the AU component
+/// type or the VST3 module category; `None` for plugins that report neither.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Category {
+    Instrument,
+    Effect,
+    MidiEffect,
+}
+
+impl Category {
+    /// Classify an AU `AudioComponents` four-char type code. Every AU carries
+    /// one; since plugins merge by (vendor, name), a plugin's AU sibling
+    /// classifies the whole product.
+    pub fn from_au_type(code: &str) -> Option<Category> {
+        match code {
+            "aumu" | "aumi" => Some(Category::Instrument),
+            "aufx" => Some(Category::Effect),
+            "aumf" => Some(Category::MidiEffect),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Scope {
@@ -55,6 +79,8 @@ pub struct PluginBundle {
     pub size_bytes: u64,
     pub scope: Scope,
     pub package_id: Option<String>,
+    pub category: Option<Category>,
+    pub copyright: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -104,6 +130,8 @@ mod tests {
             size_bytes: 10,
             scope: Scope::User,
             package_id: None,
+            category: None,
+            copyright: None,
         };
         let j = serde_json::to_string(&b).unwrap();
         assert!(j.contains("\"sizeBytes\":10"), "got {j}");

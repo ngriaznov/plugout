@@ -1,4 +1,4 @@
-use crate::model::{Format, PluginBundle, Scope};
+use crate::model::{Category, Format, PluginBundle, Scope};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Default)]
@@ -7,6 +7,9 @@ pub struct PluginMeta {
     pub vendor: String,
     pub version: String,
     pub bundle_id: String,
+    /// AU bundles carry a component type; effects/instruments are classified from it.
+    pub category: Option<Category>,
+    pub copyright: Option<String>,
 }
 
 pub fn parse_info_plist(path: &Path) -> PluginMeta {
@@ -26,25 +29,40 @@ pub fn parse_info_plist(path: &Path) -> PluginMeta {
         .or_else(|| get("CFBundleVersion"))
         .unwrap_or_default();
     let vendor = audio_component_vendor(dict).unwrap_or_else(|| vendor_from_bundle_id(&bundle_id));
+    let category = au_type(dict).and_then(|t| Category::from_au_type(&t));
+    let copyright = get("NSHumanReadableCopyright").filter(|s| !s.is_empty());
 
     PluginMeta {
         name,
         vendor,
         version,
         bundle_id,
+        category,
+        copyright,
     }
 }
 
-fn audio_component_vendor(dict: &plist::Dictionary) -> Option<String> {
-    let name = dict
-        .get("AudioComponents")?
+/// First `AudioComponents` entry, shared by the vendor and category readers.
+fn first_audio_component(dict: &plist::Dictionary) -> Option<&plist::Dictionary> {
+    dict.get("AudioComponents")?
         .as_array()?
         .first()?
-        .as_dictionary()?
-        .get("name")?
-        .as_string()?;
+        .as_dictionary()
+}
+
+fn audio_component_vendor(dict: &plist::Dictionary) -> Option<String> {
+    let name = first_audio_component(dict)?.get("name")?.as_string()?;
     let vendor = name.split(':').next()?.trim();
     (!vendor.is_empty()).then(|| vendor.to_string())
+}
+
+fn au_type(dict: &plist::Dictionary) -> Option<String> {
+    Some(
+        first_audio_component(dict)?
+            .get("type")?
+            .as_string()?
+            .to_string(),
+    )
 }
 
 fn vendor_from_bundle_id(bundle_id: &str) -> String {
@@ -108,6 +126,8 @@ pub fn scan_dir(dir: &Path, format: Format, scope: Scope) -> Vec<PluginBundle> {
             size_bytes: dir_size(&path),
             scope,
             package_id: None,
+            category: meta.category,
+            copyright: meta.copyright,
         });
     }
     out
@@ -196,6 +216,8 @@ pub fn scan_applications(roots: &[PathBuf], plugins: &[PluginBundle]) -> Vec<Plu
                     Scope::System
                 },
                 package_id: None, // receipts trail in via receipt:update
+                category: None,   // apps aren't classified as instrument/effect
+                copyright: meta.copyright.clone(),
             });
         }
     }
@@ -299,7 +321,38 @@ mod tests {
         assert_eq!(m.vendor, "FabFilter");
     }
 
-    use crate::model::{Format, Scope};
+    #[test]
+    fn category_from_au_type_and_copyright() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_plist(
+            dir.path(),
+            "<key>NSHumanReadableCopyright</key><string>© 2025 Xfer Records</string>\
+             <key>AudioComponents</key><array><dict>\
+             <key>type</key><string>aumu</string></dict></array>",
+        );
+        let m = parse_info_plist(&p);
+        assert_eq!(m.category, Some(Category::Instrument));
+        assert_eq!(m.copyright.as_deref(), Some("© 2025 Xfer Records"));
+    }
+
+    #[test]
+    fn no_category_or_copyright_when_absent() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = write_plist(dir.path(), "<key>CFBundleName</key><string>X</string>");
+        let m = parse_info_plist(&p);
+        assert_eq!(m.category, None);
+        assert_eq!(m.copyright, None);
+    }
+
+    #[test]
+    fn au_type_codes_classify() {
+        assert_eq!(Category::from_au_type("aufx"), Some(Category::Effect));
+        assert_eq!(Category::from_au_type("aumf"), Some(Category::MidiEffect));
+        assert_eq!(Category::from_au_type("aumi"), Some(Category::Instrument));
+        assert_eq!(Category::from_au_type("xxxx"), None);
+    }
+
+    use crate::model::{Category, Format, Scope};
 
     fn make_bundle(root: &Path, name: &str, plist_body: &str) {
         let contents = root.join(name).join("Contents");
@@ -368,6 +421,8 @@ mod tests {
             size_bytes: 1,
             scope: Scope::System,
             package_id: None,
+            category: None,
+            copyright: None,
         }
     }
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3
+
+- The inspector header now shows the plugin's category (Instrument / Effect /
+  MIDI Effect, from the AU component type) and copyright, read from the bundle.
+
 ## 0.2.2
 
 - Companion apps are found by walking the Applications folders instead of

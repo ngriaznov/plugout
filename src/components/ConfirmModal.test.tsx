@@ -35,6 +35,8 @@ function mk(over: Partial<PluginBundle> & { id: string }): PluginBundle {
     sizeBytes: 10,
     scope: "user" as Scope,
     packageId: null,
+    category: null,
+    copyright: null,
     ...over,
   };
 }

@@ -40,9 +40,11 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   the plugin's installer wrote — only with receipt proof, only when no surviving plugin
   shares the installer, only under safe Library roots, and always visibly toggleable
   in the confirmation.
-- The inspector shows each install's version, size, location, bundle ID, which macOS
-  installer package placed it (`pkgutil` receipt), and exactly which files a removal
-  will touch. One click to reveal any bundle in Finder.
+- The inspector header identifies the plugin — Instrument / Effect / MIDI Effect (from
+  the AU component type) and copyright, read straight from the bundle. Below it, each
+  install's version, size, location, bundle ID, which macOS installer package placed it
+  (`pkgutil` receipt), and exactly which files a removal will touch. One click to reveal
+  any bundle in Finder.
 - Sortable columns — name, vendor, format count, version (numeric-aware), size.
 - **Removal moves bundles to the Trash**, never deletes. User-scope plugins need no
   privileges; system-scope removals ask for an administrator password once per batch,

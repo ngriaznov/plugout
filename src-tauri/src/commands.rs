@@ -220,7 +220,13 @@ mod tests {
         for (dir, format, scope) in scanner::plugin_locations() {
             plugins.extend(scanner::scan_dir(&dir, format, scope));
         }
-        println!("scan: {} plugins in {:?}", plugins.len(), t0.elapsed());
+        let categorized = plugins.iter().filter(|b| b.category.is_some()).count();
+        let with_copyright = plugins.iter().filter(|b| b.copyright.is_some()).count();
+        println!(
+            "scan: {} plugins in {:?} — {categorized} categorized, {with_copyright} with copyright",
+            plugins.len(),
+            t0.elapsed(),
+        );
 
         let t1 = Instant::now();
         let apps = scanner::scan_applications(&scanner::application_roots(), &plugins);

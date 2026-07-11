@@ -24,6 +24,12 @@ const DEFS: Def[] = [
 
 const AU_BUILDS: Record<string, string> = { "Acid V": "65797", "Analog Lab V": "330755", "ARP 2600 V3": "199940" };
 
+const CATEGORIES: Record<string, "instrument" | "effect"> = {
+  "Acid V": "instrument", "Analog Lab V": "instrument", "ARP 2600 V3": "instrument",
+  Pigments: "instrument", Serum: "instrument", Vital: "instrument",
+  ValhallaRoom: "effect", "Ozone 11 Elements": "effect", Decapitator: "effect", "Pro-Q 3": "effect",
+};
+
 function bundlesFor([name, vendor, version, mb, formats, scope = "system", pkg = null]: Def): PluginBundle[] {
   return formats.map((format) => ({
     id: `${vendor}-${name}-${format}`.replace(/\s+/g, "-").toLowerCase(),
@@ -42,6 +48,8 @@ function bundlesFor([name, vendor, version, mb, formats, scope = "system", pkg =
     sizeBytes: Math.round(mb * 1024 * 1024 * (format === "AU" ? 1 : 0.98)),
     scope,
     packageId: pkg,
+    category: format === "APP" ? null : CATEGORIES[name] ?? null,
+    copyright: format === "APP" ? null : `© ${vendor}`,
   }));
 }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Plugin, PluginBundle, PluginDetails } from "../types";
+import { CATEGORY_LABELS } from "../types";
 import { revealInFinder } from "../api";
 import { getDetails } from "../detailsCache";
 import { FormatBadge } from "./FormatBadge";
@@ -83,11 +84,17 @@ export function Inspector({ plugin, onClose }: { plugin: Plugin; onClose: () => 
     <aside className="inspector">
       <header className="inspector-head">
         <div>
-          <h2 className="inspector-title">{plugin.name}</h2>
+          <div className="inspector-titlerow">
+            <h2 className="inspector-title">{plugin.name}</h2>
+            {plugin.category && (
+              <span className="category-chip">{CATEGORY_LABELS[plugin.category]}</span>
+            )}
+          </div>
           <div className="inspector-sub">
             {plugin.vendor}
             {plugin.version && <> · v{plugin.version}</>} · {formatBytes(plugin.sizeBytes)}
           </div>
+          {plugin.copyright && <div className="inspector-copyright">{plugin.copyright}</div>}
         </div>
         <button className="x" aria-label="Close details" onClick={onClose}>✕</button>
       </header>

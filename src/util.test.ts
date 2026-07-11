@@ -20,6 +20,8 @@ function mk(over: Partial<PluginBundle> & { id: string }): PluginBundle {
     sizeBytes: 10,
     scope: "system" as Scope,
     packageId: null,
+    category: null,
+    copyright: null,
     ...over,
   };
 }
@@ -144,6 +146,22 @@ describe("mergePlugins", () => {
       "Pigments/Zeta",
       "zebra/Arturia",
     ]);
+  });
+
+  it("takes category and copyright from the first install that carries them", () => {
+    const [p] = mergePlugins([
+      mk({ id: "a", format: "VST3", category: null, copyright: null }),
+      mk({ id: "b", format: "AU", category: "instrument", copyright: "© Xfer" }),
+      mk({ id: "c", format: "VST2", category: "effect", copyright: "© other" }),
+    ]);
+    expect(p.category).toBe("instrument");
+    expect(p.copyright).toBe("© Xfer");
+  });
+
+  it("leaves category and copyright null when no install carries them", () => {
+    const [p] = mergePlugins([mk({ id: "a" })]);
+    expect(p.category).toBeNull();
+    expect(p.copyright).toBeNull();
   });
 });
 

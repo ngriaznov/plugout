@@ -1,6 +1,13 @@
 export type Format = "AU" | "VST3" | "VST2" | "CLAP" | "AAX" | "APP";
 export type Scope = "user" | "system";
+export type Category = "instrument" | "effect" | "midiEffect";
 export type RemovalStatus = "trashed" | "failed";
+
+export const CATEGORY_LABELS: Record<Category, string> = {
+  instrument: "Instrument",
+  effect: "Effect",
+  midiEffect: "MIDI Effect",
+};
 
 export interface PluginBundle {
   id: string;
@@ -13,6 +20,8 @@ export interface PluginBundle {
   sizeBytes: number;
   scope: Scope;
   packageId: string | null;
+  category: Category | null;
+  copyright: string | null;
 }
 
 export interface PluginDetails {
@@ -38,6 +47,8 @@ export interface Plugin {
   installs: PluginBundle[];
   sizeBytes: number;
   scopes: Scope[];
+  category: Category | null;
+  copyright: string | null;
 }
 
 export interface SupportFile {
