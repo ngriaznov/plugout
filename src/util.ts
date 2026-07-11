@@ -190,3 +190,17 @@ export function sortPlugins(plugins: Plugin[], key: SortKey, dir: SortDir): Plug
   const cmp = COMPARATORS[key];
   return [...plugins].sort((a, b) => dir * cmp(a, b) || byName(a, b));
 }
+
+// Semantic hits are gated relative to the strongest hit that survived
+// substring exclusion: a weak best hit tightens nothing (the floor already
+// ran in Rust), but a strong one drowns out barely-related tail matches.
+export const GATE_RATIO = 0.7;
+export const GATE_CAP = 8;
+
+/** Semantic hits within GATE_RATIO of the best surviving score, capped at GATE_CAP.
+ * `hits` must be sorted descending by score (the backend returns them sorted). */
+export function gateHits<T extends { score: number }>(hits: T[]): T[] {
+  if (hits.length === 0) return [];
+  const gate = hits[0].score * GATE_RATIO;
+  return hits.filter((h) => h.score >= gate).slice(0, GATE_CAP);
+}

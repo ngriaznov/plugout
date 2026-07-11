@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBytes, mergePlugins, sortPlugins, compareVersions } from "./util";
+import { formatBytes, mergePlugins, sortPlugins, compareVersions, gateHits } from "./util";
 import type { PluginBundle, Format, Scope } from "./types";
 
 describe("formatBytes", () => {
@@ -263,6 +263,24 @@ describe("compareVersions", () => {
   it("treats missing segments as zero and empty as lowest", () => {
     expect(compareVersions("1.1", "1.1.0")).toBe(0);
     expect(compareVersions("", "0.1")).toBeLessThan(0);
+  });
+});
+
+describe("gateHits", () => {
+  const hit = (id: string, score: number) => ({ id, score });
+  it("keeps hits within GATE_RATIO of the best and drops the tail", () => {
+    const kept = gateHits([hit("a", 0.44), hit("b", 0.41), hit("c", 0.30)]);
+    expect(kept.map((h) => h.id)).toEqual(["a", "b"]); // 0.30 < 0.7 * 0.44
+  });
+  it("keeps a lone weak hit (floor already applied backend-side)", () => {
+    expect(gateHits([hit("a", 0.26)])).toHaveLength(1);
+  });
+  it("caps at GATE_CAP", () => {
+    const many = Array.from({ length: 12 }, (_, i) => hit(`p${i}`, 0.5));
+    expect(gateHits(many)).toHaveLength(8);
+  });
+  it("returns empty for empty input", () => {
+    expect(gateHits([])).toEqual([]);
   });
 });
 
