@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.4
+
+- Search now shows semantically related plugins in a "Related matches" section
+  below the direct substring matches, for queries of three characters or more.
+- Plugins whose formats spell the vendor or name differently (e.g. "sumu" AU
+  vs "Sumu" VST3, or a synth's AU/VST3/CLAP installs plus its companion app)
+  now merge into a single row instead of appearing as duplicates.
+- The inspector's install cards each get their own checkbox, so a single
+  format can be selected for removal without selecting the whole plugin.
+
 ## 0.2.3
 
 - The inspector header now shows the plugin's category (Instrument / Effect /

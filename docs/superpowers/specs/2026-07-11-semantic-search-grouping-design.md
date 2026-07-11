@@ -102,13 +102,8 @@ Must-hold cases (all become tests):
 | Ozone 11 Equalizer vs Ozone 11 Imager | stay separate (neither token set ⊂ other) |
 | Pro-Q 3 vs FabFilter Pro-Q 3 | merge (vendor FabFilter, subset, digits equal) |
 
-### Shared-path bookkeeping
-
-Multiple AU registry entries share one `.component` file, so a family group can
-contain several installs with the same `path`. Therefore:
-
-- `sizeBytes` of a Plugin sums over unique paths only.
-- Removal dedupes selected bundles by path before invoking the backend.
+Bundle ids are filesystem paths and unique per bundle — family groups never
+contain duplicate paths, so no dedup is needed.
 
 ## 3. Per-install selection (Inspector)
 
@@ -119,12 +114,12 @@ Selection is already `Set<bundle id>` in App.tsx — no data-model change.
 - The plugin row checkbox in `PluginList` becomes tri-state: checked when all
   installs selected, indeterminate when some are.
 - ActionBar and the removal flow are unchanged (they already operate on the
-  selected-bundle set), except for path dedup above.
+  selected-bundle set).
 
 ## Testing
 
 - `util.test.ts`: every row of the must-hold table; display-name and
-  unique-path-size assertions.
+  size-sum assertions.
 - Rust: unit test for top-K/threshold logic with stub vectors; `index_search`
   then `semantic_search` round-trip behind `cargo test` (embeds real model).
 - Component tests: PluginList tri-state checkbox; Inspector checkbox toggling.
