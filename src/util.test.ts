@@ -244,6 +244,14 @@ describe("mergePlugins", () => {
     expect(mergePlugins([au, v3])).toHaveLength(1); // together: bridged
     expect(mergePlugins([au])[0].key).not.toBe(mergePlugins([v3])[0].key); // apart: different keys
   });
+
+  it("does not treat a ccTLD second-level domain as a shared org", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Claro", vendor: "Sonnox", bundleId: "uk.co.sonnox.claro" }),
+      mk({ id: "b", name: "Claro Pro", vendor: "oeksound", bundleId: "uk.co.oeksound.claropro" }),
+    ]);
+    expect(plugins).toHaveLength(2);
+  });
 });
 
 describe("compareVersions", () => {

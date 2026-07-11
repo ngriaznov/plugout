@@ -42,7 +42,8 @@ const digitsOf = (tokens: string[]): string =>
 // different bundle ids and vendor spellings across formats.
 const orgOf = (bundleId: string): string | null => {
   const seg = bundleId.toLowerCase().split(".");
-  return seg.length >= 2 ? `${seg[0]}.${seg[1]}` : null;
+  const n = seg[0]?.length === 2 ? 3 : 2; // ccTLD reverse-DNS: org is the third segment
+  return seg.length >= n ? seg.slice(0, n).join(".") : null;
 };
 
 // Shortest name (fewest tokens, then fewest characters) is the base product
