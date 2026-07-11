@@ -304,7 +304,14 @@ export default function App() {
               related={related}
             />
           </div>
-          {inspected && <Inspector plugin={inspected} onClose={() => setInspectedKey(null)} />}
+          {inspected && (
+            <Inspector
+              plugin={inspected}
+              selected={selected}
+              onToggleInstall={toggleInstall}
+              onClose={() => setInspectedKey(null)}
+            />
+          )}
         </div>
 
         {selected.size > 0 && !results && (

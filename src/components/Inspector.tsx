@@ -8,10 +8,26 @@ import { formatBytes } from "../util";
 
 type DetailState = PluginDetails | "error" | undefined;
 
-function InstallCard({ bundle, details }: { bundle: PluginBundle; details: DetailState }) {
+function InstallCard({
+  bundle,
+  details,
+  checked,
+  onToggle,
+}: {
+  bundle: PluginBundle;
+  details: DetailState;
+  checked: boolean;
+  onToggle: () => void;
+}) {
   return (
     <section className="install-card">
       <header className="install-head">
+        <input
+          type="checkbox"
+          aria-label={`Select ${bundle.format} install`}
+          checked={checked}
+          onChange={onToggle}
+        />
         <FormatBadge format={bundle.format} />
         <span className="install-version">v{bundle.version || "?"}</span>
         <span className="install-size">{formatBytes(bundle.sizeBytes)}</span>
@@ -62,7 +78,17 @@ function InstallCard({ bundle, details }: { bundle: PluginBundle; details: Detai
   );
 }
 
-export function Inspector({ plugin, onClose }: { plugin: Plugin; onClose: () => void }) {
+export function Inspector({
+  plugin,
+  selected,
+  onToggleInstall,
+  onClose,
+}: {
+  plugin: Plugin;
+  selected: Set<string>;
+  onToggleInstall: (id: string) => void;
+  onClose: () => void;
+}) {
   const [details, setDetails] = useState<Record<string, DetailState>>({});
 
   useEffect(() => {
@@ -100,7 +126,13 @@ export function Inspector({ plugin, onClose }: { plugin: Plugin; onClose: () => 
       </header>
 
       {plugin.installs.map((b) => (
-        <InstallCard key={b.id} bundle={b} details={details[b.id]} />
+        <InstallCard
+          key={b.id}
+          bundle={b}
+          details={details[b.id]}
+          checked={selected.has(b.id)}
+          onToggle={() => onToggleInstall(b.id)}
+        />
       ))}
     </aside>
   );
