@@ -184,6 +184,59 @@ describe("mergePlugins", () => {
     ]);
     expect(plugins).toHaveLength(2);
   });
+
+  it("absorbs family variants into the base product (VCV Rack 2)", () => {
+    const plugins = mergePlugins([
+      mk({ id: "au", format: "AU", name: "VCV Rack 2", vendor: "VCV", bundleId: "com.vcvrack.rack" }),
+      mk({ id: "fx", format: "AU", name: "VCV Rack 2 FX", vendor: "VCV", bundleId: "com.vcvrack.rack" }),
+      mk({ id: "v3", format: "VST3", name: "VCV Rack 2", vendor: "vcvrack", bundleId: "com.vcvrack.rack" }),
+      mk({ id: "cl", format: "CLAP", name: "VCV Rack 2", vendor: "vcvrack", bundleId: "com.vcvrack.rack" }),
+      mk({ id: "app", format: "APP", name: "VCV Rack 2 Pro", vendor: "vcvrack", bundleId: "com.vcvrack.rackpro" }),
+    ]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].name).toBe("VCV Rack 2");
+    expect(plugins[0].installs).toHaveLength(5);
+  });
+
+  it("absorbs suffix-word companions (Serum FX) but not digit siblings (Serum 2)", () => {
+    const plugins = mergePlugins([
+      mk({ id: "s", name: "Serum", vendor: "Xfer Records", bundleId: "com.xferrecords.serum" }),
+      mk({ id: "sfx", name: "Serum FX", vendor: "Xfer Records", bundleId: "com.xferrecords.serumfx" }),
+      mk({ id: "s2", name: "Serum 2", vendor: "Xfer Records", bundleId: "com.xferrecords.serum2" }),
+      mk({ id: "s2fx", name: "Serum 2 FX", vendor: "Xfer Records", bundleId: "com.xferrecords.serum2fx" }),
+    ]);
+    expect(plugins).toHaveLength(2);
+    const names = plugins.map((p) => p.name).sort();
+    expect(names).toEqual(["Serum", "Serum 2"]);
+  });
+
+  it("absorbs vendor-prefixed names (FabFilter Pro-Q 3) but not digit siblings", () => {
+    const plugins = mergePlugins([
+      mk({ id: "q3", name: "Pro-Q 3", vendor: "FabFilter", bundleId: "com.fabfilter.proq3" }),
+      mk({ id: "q3f", name: "FabFilter Pro-Q 3", vendor: "FabFilter", bundleId: "com.fabfilter.proq3.full" }),
+      mk({ id: "q4", name: "Pro-Q 4", vendor: "FabFilter", bundleId: "com.fabfilter.proq4" }),
+    ]);
+    expect(plugins).toHaveLength(2);
+  });
+
+  it("does not merge sibling products whose names only overlap (Ozone, Kontakt)", () => {
+    const plugins = mergePlugins([
+      mk({ id: "oe", name: "Ozone 11 Equalizer", vendor: "iZotope", bundleId: "com.izotope.ozone11eq" }),
+      mk({ id: "oi", name: "Ozone 11 Imager", vendor: "iZotope", bundleId: "com.izotope.ozone11img" }),
+      mk({ id: "k7", name: "Kontakt 7", vendor: "Native Instruments", bundleId: "com.ni.kontakt7" }),
+      mk({ id: "k8", name: "Kontakt 8", vendor: "Native Instruments", bundleId: "com.ni.kontakt8" }),
+    ]);
+    expect(plugins).toHaveLength(4);
+  });
+
+  it("ignores format markers when comparing family names", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Kontakt 7", vendor: "Native Instruments", bundleId: "com.ni.kontakt7" }),
+      mk({ id: "b", name: "Kontakt 7 (VST3)", vendor: "Native Instruments", bundleId: "com.ni.kontakt7.vst3" }),
+    ]);
+    expect(plugins).toHaveLength(1);
+    expect(plugins[0].name).toBe("Kontakt 7");
+  });
 });
 
 describe("compareVersions", () => {

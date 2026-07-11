@@ -23,6 +23,39 @@ function displayVersion(installs: PluginBundle[]): string {
 
 const SCOPE_ORDER: Scope[] = ["user", "system"];
 
+// Format markers carry no product identity ("Kontakt 7 (VST3)" is Kontakt 7)
+// and must not contribute digits to the version-sibling check.
+const FORMAT_TOKENS = new Set(["vst", "vst2", "vst3", "au", "audiounit", "aax", "clap", "app"]);
+
+// Alphanumeric runs minus format markers, split into letter/digit subtokens:
+// "Kontakt 7 (VST3)" → ["kontakt", "7"]; "Serum2" → ["serum", "2"].
+const tokensOf = (name: string): string[] =>
+  (name.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+    .filter((run) => !FORMAT_TOKENS.has(run))
+    .flatMap((run) => run.match(/[a-z]+|\d+/g) ?? []);
+
+// Digit changes mean a different product (Serum vs Serum 2, Pro-Q 3 vs 4).
+const digitsOf = (tokens: string[]): string =>
+  tokens.filter((t) => /^\d+$/.test(t)).join(".");
+
+// The reverse-DNS org ("com.vcvrack") bridges a family whose members carry
+// different bundle ids and vendor spellings across formats.
+const orgOf = (bundleId: string): string | null => {
+  const seg = bundleId.toLowerCase().split(".");
+  return seg.length >= 2 ? `${seg[0]}.${seg[1]}` : null;
+};
+
+// Shortest name (fewest tokens, then fewest characters) is the base product
+// name of a family — "VCV Rack 2", not "VCV Rack 2 MIDI FX".
+const canonicalName = (list: PluginBundle[]): string => {
+  let best = list[0].name;
+  for (const b of list) {
+    const [n, bn] = [tokensOf(b.name).length, tokensOf(best).length];
+    if (n < bn || (n === bn && b.name.length < best.length)) best = b.name;
+  }
+  return best;
+};
+
 // The same plugin carries two vendor spellings: AU bundles report the human
 // vendor name from AudioComponents ("D16 Group Audio Software") while other
 // formats fall back to a bundle-id segment ("d16group"). Installs therefore
@@ -44,6 +77,11 @@ export function mergePlugins(bundles: PluginBundle[]): Plugin[] {
     parent.set(k, root);
     return root;
   };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(rb, ra);
+  };
   const keysOf = (b: PluginBundle): string[] => {
     const name = fold(b.name);
     const keys = [`vn:${fold(b.vendor)}|${name}`];
@@ -52,11 +90,7 @@ export function mergePlugins(bundles: PluginBundle[]): Plugin[] {
   };
   for (const b of bundles) {
     const [first, ...rest] = keysOf(b);
-    for (const k of rest) {
-      const ra = find(first);
-      const rb = find(k);
-      if (ra !== rb) parent.set(rb, ra);
-    }
+    for (const k of rest) union(first, k);
   }
   const map = new Map<string, PluginBundle[]>();
   for (const b of bundles) {
@@ -65,14 +99,52 @@ export function mergePlugins(bundles: PluginBundle[]): Plugin[] {
     if (list) list.push(b);
     else map.set(key, [b]);
   }
-  const plugins: Plugin[] = [...map.entries()].map(([key, list]) => {
+
+  // Family absorption: "Serum FX", "VCV Rack 2 Pro" belong to the product
+  // whose name theirs extends. Merge group EXT into group BASE when they
+  // share an identity (vendor, bundle id, or reverse-DNS org), their digit
+  // sequences match (digit changes are different products), and BASE's name
+  // tokens are a subset of EXT's. Equal sets are allowed — "Kontakt 7" and
+  // "Kontakt 7 (VST3)" tokenize identically once format markers drop.
+  interface Fam { key: string; tokens: Set<string>; digits: string; identity: Set<string> }
+  const fams: Fam[] = [...map.entries()].map(([key, list]) => {
+    const tokens = new Set(tokensOf(canonicalName(list)));
+    const identity = new Set<string>();
+    for (const b of list) {
+      identity.add(`v:${fold(b.vendor)}`);
+      if (b.bundleId) {
+        identity.add(`b:${b.bundleId.toLowerCase()}`);
+        const org = orgOf(b.bundleId);
+        if (org) identity.add(`o:${org}`);
+      }
+    }
+    return { key, tokens: tokens, digits: digitsOf([...tokens]), identity };
+  });
+  for (const base of fams) {
+    for (const ext of fams) {
+      if (base === ext || base.digits !== ext.digits) continue;
+      if (base.tokens.size > ext.tokens.size) continue;
+      if (![...base.tokens].every((t) => ext.tokens.has(t))) continue;
+      if (![...base.identity].some((i) => ext.identity.has(i))) continue;
+      union(base.key, ext.key);
+    }
+  }
+  const groups = new Map<string, PluginBundle[]>();
+  for (const [key, list] of map) {
+    const root = find(key);
+    const existing = groups.get(root);
+    if (existing) existing.push(...list);
+    else groups.set(root, [...list]);
+  }
+
+  const plugins: Plugin[] = [...groups.entries()].map(([key, list]) => {
     const installs = [...list].sort(
       (a, b) => FORMATS.indexOf(a.format) - FORMATS.indexOf(b.format),
     );
     const scopes = new Set(installs.map((b) => b.scope));
     return {
       key,
-      name: installs[0].name,
+      name: canonicalName(installs),
       vendor: installs[0].vendor,
       version: displayVersion(installs),
       installs,
