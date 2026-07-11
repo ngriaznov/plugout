@@ -205,6 +205,34 @@ pub async fn removal_preview(removing: Vec<String>, bundles: Vec<OwnedBundle>) -
     .unwrap_or_default()
 }
 
+/// Replace the semantic-search index with embeddings of `docs`. Embedding a
+/// few hundred docs takes ~1s of pure CPU, so it runs on the blocking pool.
+#[tauri::command]
+pub async fn index_search(
+    state: tauri::State<'_, crate::search::SearchIndex>,
+    docs: Vec<crate::search::SearchDoc>,
+) -> Result<(), String> {
+    let index = state.0.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let vectors: Vec<(String, Vec<f32>)> = docs
+            .into_iter()
+            .map(|d| (d.id, tern_engine::embed(&d.text)))
+            .collect();
+        *index.lock().unwrap() = vectors;
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn semantic_search(
+    state: tauri::State<'_, crate::search::SearchIndex>,
+    query: String,
+) -> Vec<crate::search::SearchHit> {
+    let q = tern_engine::embed(&query);
+    crate::search::top_hits(&state.0.lock().unwrap(), &q)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

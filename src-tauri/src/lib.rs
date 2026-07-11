@@ -29,6 +29,7 @@ mod receipts;
 mod remover;
 mod reversal;
 mod scanner;
+mod search;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -36,12 +37,15 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .manage(search::SearchIndex::default())
         .invoke_handler(tauri::generate_handler![
             commands::start_scan,
             commands::plugin_details,
             commands::remove_items,
             commands::removal_preview,
             commands::reveal_in_finder,
+            commands::index_search,
+            commands::semantic_search,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
