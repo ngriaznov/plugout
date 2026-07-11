@@ -16,10 +16,14 @@ pub struct SearchHit {
     pub score: f32,
 }
 
-/// Hits below this don't read as related — calibrated by measurement; short
-/// query → name scores run low ("reverb" vs a reverb plugin ≈ 0.23–0.39).
-pub const MIN_SCORE: f32 = 0.30;
-pub const TOP_K: usize = 8;
+/// Loose candidate floor, not a relevance judgment — calibrated by
+/// measurement on a real library, where related-but-differently-named gear
+/// scores as low as 0.25 while junk can reach 0.36. Final gating happens in
+/// the frontend, relative to the best hit that survives substring exclusion.
+pub const MIN_SCORE: f32 = 0.25;
+/// Candidate cap: wide enough that the frontend's relative gate has room to
+/// work with, not itself a relevance cutoff.
+pub const TOP_K: usize = 16;
 
 /// Replaced wholesale by each `index_search`; shared with `semantic_search`.
 #[derive(Default, Clone)]
@@ -50,10 +54,17 @@ mod tests {
 
     #[test]
     fn ranks_by_score_and_applies_threshold() {
-        let index = idx(&[("low", [0.1, 0.0]), ("mid", [0.5, 0.0]), ("high", [0.9, 0.0])]);
+        let index = idx(&[
+            ("low", [0.1, 0.0]),
+            ("borderline", [0.27, 0.0]),
+            ("mid", [0.5, 0.0]),
+            ("high", [0.9, 0.0]),
+        ]);
         let hits = top_hits(&index, &[1.0, 0.0]);
         let ids: Vec<&str> = hits.iter().map(|h| h.id.as_str()).collect();
-        assert_eq!(ids, vec!["high", "mid"]); // "low" (0.1) is under MIN_SCORE
+        // "low" (0.1) is under MIN_SCORE; "borderline" (0.27) now clears the
+        // loosened floor even though it would have been cut at the old 0.30.
+        assert_eq!(ids, vec!["high", "mid", "borderline"]);
     }
 
     #[test]
@@ -61,6 +72,7 @@ mod tests {
         let index: Vec<(String, Vec<f32>)> =
             (0..20).map(|i| (format!("p{i}"), vec![0.5, 0.0])).collect();
         assert_eq!(top_hits(&index, &[1.0, 0.0]).len(), TOP_K);
+        assert_eq!(TOP_K, 16);
     }
 
     #[test]
