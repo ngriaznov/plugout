@@ -25,15 +25,18 @@ pub const MIN_SCORE: f32 = 0.25;
 /// work with, not itself a relevance cutoff.
 pub const TOP_K: usize = 16;
 
+/// One indexed document: bundle id and its embedding.
+pub type IndexEntry = (String, Vec<f32>);
+
 /// Replaced wholesale by each `index_search`; shared with `semantic_search`.
 #[derive(Default, Clone)]
-pub struct SearchIndex(pub Arc<Mutex<Vec<(String, Vec<f32>)>>>);
+pub struct SearchIndex(pub Arc<Mutex<Vec<IndexEntry>>>);
 
 pub fn dot(a: &[f32], b: &[f32]) -> f32 {
     a.iter().zip(b).map(|(x, y)| x * y).sum()
 }
 
-pub fn top_hits(index: &[(String, Vec<f32>)], query: &[f32]) -> Vec<SearchHit> {
+pub fn top_hits(index: &[IndexEntry], query: &[f32]) -> Vec<SearchHit> {
     let mut hits: Vec<SearchHit> = index
         .iter()
         .map(|(id, v)| SearchHit {
