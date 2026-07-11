@@ -205,4 +205,15 @@ describe("related results", () => {
     render(<PluginList {...baseProps()} query="reverb" related={related} />);
     expect(screen.queryByText(/No plugins match/)).not.toBeInTheDocument();
   });
+
+  it("hides related plugins whose product already appears in the main list", () => {
+    // Same product, two vendor spellings that fold to the same identity
+    // (case/punctuation only): merged plugins share the same key.
+    const plugins = mergePlugins([mk({ id: "a", name: "Decimort 2", vendor: "d16group", bundleId: "com.d16group.decimort2" })]);
+    const related = mergePlugins([mk({ id: "b", name: "Decimort 2", vendor: "D16 Group", bundleId: "com.d16group.decimort2" })]);
+    expect(related[0].key).toBe(plugins[0].key); // precondition: identical product key
+    render(<PluginList {...baseProps()} plugins={plugins} related={related} />);
+    expect(screen.queryByText("Related matches")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Decimort 2")).toHaveLength(1);
+  });
 });

@@ -89,6 +89,12 @@ export function PluginList(p: Props) {
   const allChecked = allIds.length > 0 && allIds.every((id) => p.selected.has(id));
   const someChecked = allIds.some((id) => p.selected.has(id));
 
+  // A product can already be visible via one install's spelling while a
+  // sibling install of the same product only hits semantically; dedupe by
+  // key so it never renders under both the main list and "Related matches".
+  const shownKeys = new Set(p.plugins.map((pl) => pl.key));
+  const relatedRows = (p.related ?? []).filter((pl) => !shownKeys.has(pl.key));
+
   const renderRow = (pl: Plugin) => {
     const selCount = pl.installs.filter((b) => p.selected.has(b.id)).length;
     return (
@@ -149,15 +155,15 @@ export function PluginList(p: Props) {
       <tbody>
         {p.loading && p.plugins.length === 0 && <SkeletonRows />}
         {p.plugins.map(renderRow)}
-        {p.related && p.related.length > 0 && (
+        {relatedRows.length > 0 && (
           <>
             <tr className="related-divider">
               <td colSpan={6}>Related matches</td>
             </tr>
-            {p.related.map(renderRow)}
+            {relatedRows.map(renderRow)}
           </>
         )}
-        {!p.loading && p.plugins.length === 0 && !(p.related && p.related.length > 0) && (
+        {!p.loading && p.plugins.length === 0 && relatedRows.length === 0 && (
           <tr>
             <td colSpan={6} className="empty">
               <div className="empty-state">
