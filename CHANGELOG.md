@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- New Used column shows, per plugin, how many REAPER and Ableton projects
+  reference it and when it was last used, sortable to find safe delete
+  candidates; the inspector shows the same usage line for the selected plugin.
+- Project usage is found by scanning Spotlight-located .rpp/.als files for
+  their plugin reference blocks, read-only and skipped silently when a
+  project file can't be parsed.
+
 ## 0.2.5
 
 - Related search now understands function words: curated per-vendor keywords

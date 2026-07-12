@@ -53,6 +53,9 @@ the Trash, so any mistake is a drag-and-drop away from undone.
 - **Search understands function words.** Type `reverb` or `drum machine` and a
   "Related matches" section lists plugins whose names never say it — an on-device
   embedding model ranks every installed plugin against the query. No network involved.
+- **Shows what you actually use.** plugout scans REAPER and Ableton project files on
+  your Mac and shows, per plugin, how many projects reference it and when it was last
+  used — sort by the Used column to find safe delete candidates.
 - **One-click inventory export.** The Export button writes
   `plugout-inventory-<date>.csv` and `.json` to Downloads — every product, install,
   version, path and installer package.
@@ -89,7 +92,9 @@ the background (`pkgutil --file-info` is slow, so it never blocks the list; a
 `pkgutil --files` over the plugins' receipt families reveals the installers' support
 files, guarded so nothing shared with surviving plugins is ever offered. Removal
 uses the macOS Trash API for user files and a single `with administrator privileges`
-shell call for the whole system-scope batch.
+shell call for the whole system-scope batch. Project usage comes from Spotlight-located
+.rpp/.als files, parsed for their plugin reference blocks — read-only, skipped silently
+when unreadable.
 
 Semantic search runs in-process: a vendored copy of
 [ternlight](https://github.com/soycaporal/ternlight)'s int8 inference engine embeds
