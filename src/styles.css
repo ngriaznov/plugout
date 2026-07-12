@@ -296,6 +296,8 @@ th.c-size .th-btn { justify-content: flex-end; }
 
 .related-divider td {
   padding: 14px 12px 4px;
+  white-space: nowrap;
+  overflow: visible;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;

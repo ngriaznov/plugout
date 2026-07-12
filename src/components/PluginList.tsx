@@ -157,8 +157,16 @@ export function PluginList(p: Props) {
         {p.plugins.map(renderRow)}
         {relatedRows.length > 0 && (
           <>
+            {/* Shaped like a data row (no colSpan): a spanning cell makes
+                table-layout:fixed hand width back to container-query-hidden
+                columns, starving the name column on narrow windows. */}
             <tr className="related-divider">
-              <td colSpan={6}>Related matches</td>
+              <td className="c-check" />
+              <td>Related matches</td>
+              <td className="c-vendor" />
+              <td className="c-chips" />
+              <td className="c-version" />
+              <td className="c-size" />
             </tr>
             {relatedRows.map(renderRow)}
           </>

@@ -195,6 +195,17 @@ describe("related results", () => {
     expect(screen.getByText("ValhallaVintageVerb")).toBeInTheDocument();
   });
 
+  it("shapes the divider like a data row — a colSpan cell would starve the name column", () => {
+    // Regression: with table-layout:fixed, a colSpan divider hands width back
+    // to container-query-hidden columns and the name column collapses to ~0
+    // on narrow windows (user-reported glitch).
+    const related = mergePlugins([mk({ id: "r1", name: "ValhallaVintageVerb", vendor: "Valhalla DSP" })]);
+    render(<PluginList {...baseProps()} plugins={mergePlugins([mk({ id: "a" })])} related={related} />);
+    const divider = screen.getByText("Related matches").closest("tr")!;
+    expect(divider.querySelectorAll("td")).toHaveLength(6);
+    expect(divider.querySelector("td[colspan]")).toBeNull();
+  });
+
   it("renders no divider when there are no related plugins", () => {
     render(<PluginList {...baseProps()} plugins={mergePlugins([mk({ id: "a" })])} />);
     expect(screen.queryByText("Related matches")).not.toBeInTheDocument();
