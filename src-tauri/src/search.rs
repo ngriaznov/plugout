@@ -1,13 +1,17 @@
 //! Semantic search over scanned plugins. The scan indexes one document per
-//! bundle ("name vendor category"); queries embed once and rank by dot
-//! product (vectors are L2-normalized, so dot == cosine).
+//! bundle ("name vendor category", plus curated keywords from
+//! [`crate::keywords::enrich`]); queries embed once and rank by dot product
+//! (vectors are L2-normalized, so dot == cosine).
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 
 #[derive(Deserialize)]
 pub struct SearchDoc {
     pub id: String,
-    pub text: String,
+    pub name: String,
+    pub vendor: String,
+    /// Human category label, empty when unknown.
+    pub category: String,
 }
 
 #[derive(Serialize, Clone, Debug, PartialEq)]

@@ -137,7 +137,9 @@ export default function App() {
     if (loading || bundles.length === 0) return;
     const docs = bundles.map((b) => ({
       id: b.id,
-      text: `${b.name} ${b.vendor}${b.category ? ` ${CATEGORY_LABELS[b.category]}` : ""}`,
+      name: b.name,
+      vendor: b.vendor,
+      category: b.category ? CATEGORY_LABELS[b.category] : "",
     }));
     indexSearch(docs).catch((e) => console.warn("semantic index failed", e));
     // Re-index only when a scan completes, not on receipt enrichment churn.

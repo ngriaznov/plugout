@@ -36,7 +36,9 @@ export const removalPreview = (removing: string[], bundles: PluginBundle[]) => {
 // Semantic search (vendored ternlight model in the Rust backend)
 export interface SearchDoc {
   id: string;
-  text: string;
+  name: string;
+  vendor: string;
+  category: string;
 }
 export interface SearchHit {
   id: string;

@@ -216,7 +216,21 @@ pub async fn index_search(
     tauri::async_runtime::spawn_blocking(move || {
         let vectors: Vec<(String, Vec<f32>)> = docs
             .into_iter()
-            .map(|d| (d.id, tern_engine::embed(&d.text)))
+            .map(|d| {
+                let keywords = crate::keywords::enrich(&d.name, &d.vendor);
+                let text = [
+                    d.name.as_str(),
+                    d.vendor.as_str(),
+                    d.category.as_str(),
+                    keywords.as_str(),
+                ]
+                .iter()
+                .filter(|s| !s.is_empty())
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(" ");
+                (d.id, tern_engine::embed(&text))
+            })
             .collect();
         *index.lock().unwrap_or_else(|e| e.into_inner()) = vectors;
     })
