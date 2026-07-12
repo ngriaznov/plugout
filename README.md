@@ -27,9 +27,10 @@ the Trash, so any mistake is a drag-and-drop away from undone.
 
 - Scans the user (`~/Library`) and system (`/Library`) plugin folders for all five
   formats, streaming results as they're found — no waiting for a full scan.
-- Merges every plugin's format bundles into a single row. Select the whole plugin with
-  the checkbox, or click individual format chips to remove just the VST2, say, and keep
-  the rest.
+- Merges every plugin's format bundles into a single row — including vendor-spelling
+  variants and companion editions ("Serum FX", a "Pro" standalone app), which fold
+  into the same product. Select the whole plugin with the checkbox, or click
+  individual format chips to remove just the VST2, say, and keep the rest.
 - Shows real versions. Audio Units report an integer build number (`65797`); plugout
   displays the human version from the plugin's other formats instead.
 - **Companion apps are a format too.** The standalone app a plugin installed in
@@ -49,6 +50,12 @@ the Trash, so any mistake is a drag-and-drop away from undone.
 - **Removal moves bundles to the Trash**, never deletes. User-scope plugins need no
   privileges; system-scope removals ask for an administrator password once per batch,
   not once per plugin.
+- **Search understands function words.** Type `reverb` or `drum machine` and a
+  "Related matches" section lists plugins whose names never say it — an on-device
+  embedding model ranks every installed plugin against the query. No network involved.
+- **One-click inventory export.** The Export button writes
+  `plugout-inventory-<date>.csv` and `.json` to Downloads — every product, install,
+  version, path and installer package.
 - Light and dark theme, or auto-follow the system appearance.
 
 ## Install
@@ -83,6 +90,14 @@ the background (`pkgutil --file-info` is slow, so it never blocks the list; a
 files, guarded so nothing shared with surviving plugins is ever offered. Removal
 uses the macOS Trash API for user files and a single `with administrator privileges`
 shell call for the whole system-scope batch.
+
+Semantic search runs in-process: a vendored copy of
+[ternlight](https://github.com/soycaporal/ternlight)'s int8 inference engine embeds
+each scanned bundle's name, vendor, category and a curated keyword tag into a
+384-dimension vector; queries rank by dot product, and the UI keeps only hits close
+to the best match that isn't already a plain substring hit. The model binary is
+fetched once at build time, pinned by SHA-256 — the app itself never touches the
+network for search.
 
 The frontend is React. Format bundles are merged into plugins client-side
 (`mergePlugins` in [src/util.ts](src/util.ts)), selection is tracked per bundle so
