@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.8
+
+- Fixed the plugin table's header row staying sharp above the blur when the
+  settings or removal dialog was open.
+
 ## 0.2.7
 
 - Added a Settings dialog. DAW project scanning is now opt-in and off by
