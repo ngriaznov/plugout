@@ -44,6 +44,7 @@ export default function App() {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
   const [update, setUpdate] = useState<UpdateState>({ phase: "idle" });
   const toastTimer = useRef<number | null>(null);
+  const exportToastTimer = useRef<number | null>(null);
 
   // Quiet update check once the launch dust settles; failures stay silent —
   // an unreachable update endpoint should never bother the user.
@@ -156,6 +157,8 @@ export default function App() {
     setBusy(false);
     setConfirming(false);
     setResults(res);
+    setExportedDir(null);
+    if (exportToastTimer.current) clearTimeout(exportToastTimer.current);
     rescan();
     if (toastTimer.current) clearTimeout(toastTimer.current);
     const hasFailures = res.some((r) => r.status === "failed");
@@ -174,8 +177,8 @@ export default function App() {
     } catch {
       setExportedDir("error");
     }
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setExportedDir(null), 6000);
+    if (exportToastTimer.current) clearTimeout(exportToastTimer.current);
+    exportToastTimer.current = window.setTimeout(() => setExportedDir(null), 6000);
   }
 
   const visible = useMemo(
