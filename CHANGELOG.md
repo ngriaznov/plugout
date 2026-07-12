@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.5
+
+- Related search now understands function words: curated per-vendor keywords
+  are folded into each plugin's search document, so queries like "reverb" or
+  "equalizer" surface relevant gear even when the plugin's name never says it.
+- One-click inventory export: the Export button writes a CSV and JSON
+  snapshot of every product, install, version, path and installer package to
+  Downloads, with a Reveal action in the confirmation toast.
+
 ## 0.2.4
 
 - Search now shows semantically related plugins in a "Related matches" section
