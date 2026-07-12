@@ -21,12 +21,14 @@ import { exportCsv, exportJson } from "./export";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
+import { getSettings, setSettings, type Settings } from "./settings";
 import { gateHits, matchUsage, mergePlugins, sortPlugins, usageFor, type SortDir, type SortKey } from "./util";
 import { Sidebar } from "./components/Sidebar";
 import { PluginList } from "./components/PluginList";
 import { Inspector } from "./components/Inspector";
 import { ActionBar } from "./components/ActionBar";
 import { ConfirmModal } from "./components/ConfirmModal";
+import { SettingsModal } from "./components/SettingsModal";
 import { UpdatePill } from "./components/UpdatePill";
 
 export default function App() {
@@ -39,6 +41,8 @@ export default function App() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [inspectedKey, setInspectedKey] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [settings, setSettingsState] = useState<Settings>(getSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<RemovalResult[] | null>(null);
   const [exportedDir, setExportedDir] = useState<string | null>(null);
@@ -90,6 +94,10 @@ export default function App() {
     setThemePref(pref);
   }
 
+  function changeSettings(patch: Partial<Settings>) {
+    setSettingsState(setSettings(patch));
+  }
+
   // Clear state and kick off a fresh streaming scan. Results arrive via the
   // listeners registered on mount, so the UI populates progressively.
   function rescan() {
@@ -132,12 +140,16 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (confirming) setConfirming(false);
+      // Closest-first: the settings dialog sits on top of everything else,
+      // so it dismisses before the confirm modal, which dismisses before
+      // the inspector panel underneath.
+      if (settingsOpen) setSettingsOpen(false);
+      else if (confirming) setConfirming(false);
       else setInspectedKey(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [confirming]);
+  }, [settingsOpen, confirming]);
 
   // Feed the semantic-search index once a scan settles. Failures are logged
   // and swallowed — search degrades to substring-only.
@@ -325,6 +337,9 @@ export default function App() {
           </div>
           <div className="spacer" />
           <UpdatePill state={update} onDownload={startUpdate} onRestart={restartApp} />
+          <button className="ghost small" onClick={() => setSettingsOpen(true)}>
+            Settings
+          </button>
           <button className="ghost small" onClick={doExport} disabled={loading || bundles.length === 0}>
             Export
           </button>
@@ -380,6 +395,14 @@ export default function App() {
             busy={busy}
             onCancel={() => setConfirming(false)}
             onConfirm={doRemove}
+          />
+        )}
+
+        {settingsOpen && (
+          <SettingsModal
+            settings={settings}
+            onChange={changeSettings}
+            onClose={() => setSettingsOpen(false)}
           />
         )}
 
