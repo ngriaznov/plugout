@@ -421,6 +421,9 @@ code {
 /* ---------- Modal ---------- */
 .overlay {
   position: fixed; inset: 0;
+  /* Above the table's sticky header (th z-index: 1), which otherwise paints
+     over the backdrop and escapes the blur. */
+  z-index: 10;
   background: var(--overlay);
   backdrop-filter: blur(3px);
   display: flex; align-items: center; justify-content: center;
