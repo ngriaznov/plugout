@@ -56,16 +56,56 @@ pub fn parse_rpp(text: &str) -> Vec<PluginRef> {
     out
 }
 
-/// `<Tag Value="..."/>` value directly following `from` in `text`, if the tag
-/// appears within `window` chars. The window is clamped to the nearest
-/// closing tag so a compact sibling element's attributes (e.g. another
-/// plugin block's `Manufacturer`) can't bleed into this one.
-fn value_after<'a>(text: &'a str, from: usize, tag: &str, window: usize) -> Option<&'a str> {
-    let limit = text[from..].find("</").map_or(window, |p| p.min(window));
-    let hay = &text[from..text.len().min(from + limit)];
-    let i = hay.find(&format!("<{tag} Value=\""))?;
-    let rest = &hay[i + tag.len() + 9..];
+/// `<Tag Value="..."/>` value of the first occurrence of `tag` in `text`.
+fn value_after<'a>(text: &'a str, tag: &str) -> Option<&'a str> {
+    let needle = format!("<{tag} Value=\"");
+    let i = text.find(&needle)?;
+    let rest = &text[i + needle.len()..];
     rest.split_once('"').map(|(v, _)| v)
+}
+
+/// Removes every `<Preset>...</Preset>` subrange from `block`. Real Live plugin
+/// blocks carry a multi-KB Preset subtree between the scalar props and the
+/// real `<Name>`/`<Manufacturer>` tags, and that subtree may itself contain a
+/// decoy `<Name Value="" />` (or even a non-empty one) that must not be
+/// mistaken for the block's own name. If a `<Preset>` has no closing tag, the
+/// rest of the block is dropped (nothing trustworthy follows unterminated
+/// markup). All offsets come from `find`, so they always land on char
+/// boundaries — no fixed-byte windows.
+fn excise_presets(block: &str) -> String {
+    let mut out = String::with_capacity(block.len());
+    let mut rest = block;
+    loop {
+        match rest.find("<Preset>") {
+            None => {
+                out.push_str(rest);
+                return out;
+            }
+            Some(p) => {
+                out.push_str(&rest[..p]);
+                match rest[p..].find("</Preset>") {
+                    Some(q) => rest = &rest[p + q + "</Preset>".len()..],
+                    None => return out, // unterminated Preset: drop the rest
+                }
+            }
+        }
+    }
+}
+
+/// Extracts the plugin name/vendor from one opener..closer block, after
+/// excising any `<Preset>` subtree so its contents can't shadow the block's
+/// own `<PlugName>`/`<Name>`/`<Manufacturer>`.
+fn ref_from_block(block: &str) -> Option<PluginRef> {
+    let text = excise_presets(block);
+    let name = value_after(&text, "PlugName").or_else(|| value_after(&text, "Name"))?;
+    if name.is_empty() {
+        return None;
+    }
+    let vendor = value_after(&text, "Manufacturer").unwrap_or("");
+    Some(PluginRef {
+        name: name.into(),
+        vendor: vendor.into(),
+    })
 }
 
 pub fn parse_als(bytes: &[u8]) -> Vec<PluginRef> {
@@ -82,22 +122,24 @@ pub fn parse_als(bytes: &[u8]) -> Vec<PluginRef> {
         "<AuPluginInfo",
         "<ClapPluginInfo",
     ] {
+        // These elements don't self-nest, so the first closer after the
+        // opener is always this block's own — take the whole substring as
+        // the block and resume scanning from just past it.
+        let closer = format!("</{}>", &opener[1..]);
         let mut from = 0;
         while let Some(i) = xml[from..].find(opener) {
-            let at = from + i + opener.len();
-            let name = value_after(&xml, at, "PlugName", 500)
-                .or_else(|| value_after(&xml, at, "Name", 500));
-            if let Some(name) = name.filter(|n| !n.is_empty()) {
-                let vendor = value_after(&xml, at, "Manufacturer", 500).unwrap_or("");
-                let r = PluginRef {
-                    name: name.into(),
-                    vendor: vendor.into(),
-                };
+            let open_at = from + i;
+            let body_at = open_at + opener.len();
+            let Some(j) = xml[body_at..].find(&closer) else {
+                break; // no closing tag for this opener kind past here
+            };
+            let close_end = body_at + j + closer.len();
+            if let Some(r) = ref_from_block(&xml[open_at..close_end]) {
                 if !out.contains(&r) {
                     out.push(r);
                 }
             }
-            from = at;
+            from = close_end;
         }
     }
     out
@@ -244,6 +286,73 @@ mod tests {
     #[test]
     fn als_corrupt_gzip_yields_empty() {
         assert!(parse_als(b"not gzip at all").is_empty());
+    }
+
+    // Real Live blocks: opener, scalar props, a multi-KB <Preset> subtree that
+    // may itself carry a decoy (or non-empty) <Name>, and only then the real
+    // <Name Value="..."/> — thousands of chars after the opener. Modeled on
+    // `/tmp/real.xml` extracted from an actual .als.
+    fn real_shaped_block(preset_filler: &str) -> String {
+        format!(
+            r#"<Vst3PluginInfo Id="0">
+              <WinPosX Value="373" />
+              <WinPosY Value="175" />
+              <NumAudioInputs Value="1" />
+              <NumAudioOutputs Value="1" />
+              <IsPlaceholderDevice Value="false" />
+              <Preset>
+                <Vst3Preset Id="3">
+                  <Name Value="Decoy" />
+                  {preset_filler}
+                </Vst3Preset>
+              </Preset>
+              <Name Value="Invigorate" />
+              <Uid>
+                <Fields.0 Value="1448301673" />
+              </Uid>
+            </Vst3PluginInfo>"#
+        )
+    }
+
+    #[test]
+    fn als_skips_preset_decoy_and_finds_real_name_far_after_opener() {
+        let filler = "x".repeat(200);
+        let xml = format!(
+            r#"<?xml version="1.0"?><Ableton>{}</Ableton>"#,
+            real_shaped_block(&filler)
+        );
+        let refs = parse_als(&gz(&xml));
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].name, "Invigorate");
+        assert!(!refs.iter().any(|r| r.name == "Decoy"));
+    }
+
+    #[test]
+    fn als_handles_multibyte_filler_in_preset_without_panicking() {
+        let filler = "Größe müßig 音源 ".repeat(20);
+        let xml = format!(
+            r#"<?xml version="1.0"?><Ableton>{}</Ableton>"#,
+            real_shaped_block(&filler)
+        );
+        let refs = parse_als(&gz(&xml));
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].name, "Invigorate");
+    }
+
+    #[test]
+    #[ignore = "machine-local file: run explicitly with `cargo test real_als_smoke -- --ignored`"]
+    fn real_als_smoke() {
+        let path = "/Users/nikitagriaznov/Documents/REAPER Media/FS3/Untitled Project/Untitled.als";
+        let bytes = std::fs::read(path).expect("real .als fixture must exist for this smoke test");
+        let refs = parse_als(&bytes);
+        assert!(
+            !refs.is_empty(),
+            "expected at least one plugin ref from the real project"
+        );
+        assert!(
+            refs.iter().any(|r| r.name == "Invigorate"),
+            "expected to find the real plugin name past its Preset blob, got {refs:?}"
+        );
     }
 
     struct SpyFinder {
