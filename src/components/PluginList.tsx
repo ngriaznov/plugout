@@ -69,7 +69,7 @@ function SortHeader({
   );
 }
 
-function SkeletonRows() {
+function SkeletonRows({ showUsed }: { showUsed: boolean }) {
   return (
     <>
       {Array.from({ length: 9 }, (_, i) => (
@@ -81,7 +81,7 @@ function SkeletonRows() {
           <td className="c-vendor"><div className="skel" style={{ width: 70 }} /></td>
           <td><div className="skel" style={{ width: 110 }} /></td>
           <td><div className="skel" style={{ width: 54 }} /></td>
-          <td className="c-used" />
+          {showUsed && <td className="c-used" />}
           <td className="c-size"><div className="skel skel-right" style={{ width: 52 }} /></td>
         </tr>
       ))}
@@ -90,6 +90,8 @@ function SkeletonRows() {
 }
 
 export function PluginList(p: Props) {
+  const showUsed = p.usage !== undefined;
+  const columnCount = showUsed ? 7 : 6;
   const allIds = p.plugins.flatMap((pl) => pl.installs.map((b) => b.id));
   const allChecked = allIds.length > 0 && allIds.every((id) => p.selected.has(id));
   const someChecked = allIds.some((id) => p.selected.has(id));
@@ -133,9 +135,9 @@ export function PluginList(p: Props) {
           ))}
         </td>
         <td className="c-version">{pl.version || "—"}</td>
-        <td className="c-used">
-          {(p.usage && usageFor(pl, p.usage)?.projects) ?? "—"}
-        </td>
+        {showUsed && (
+          <td className="c-used">{(p.usage && usageFor(pl, p.usage)?.projects) ?? "—"}</td>
+        )}
         <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
       </tr>
     );
@@ -157,19 +159,21 @@ export function PluginList(p: Props) {
           <SortHeader label="Vendor" k="vendor" sort={p.sort} onSort={p.onSort} className="c-vendor-h" />
           <SortHeader label="Formats" k="formats" sort={p.sort} onSort={p.onSort} className="c-chips-h" />
           <SortHeader label="Version" k="version" sort={p.sort} onSort={p.onSort} className="c-version-h" />
-          <SortHeader
-            label="Used"
-            k="used"
-            sort={p.sort}
-            onSort={p.onSort}
-            className="c-used-h"
-            title="Projects referencing this plugin (REAPER and Ableton files scanned)"
-          />
+          {showUsed && (
+            <SortHeader
+              label="Used"
+              k="used"
+              sort={p.sort}
+              onSort={p.onSort}
+              className="c-used-h"
+              title="Projects referencing this plugin (REAPER and Ableton files scanned)"
+            />
+          )}
           <SortHeader label="Size" k="size" sort={p.sort} onSort={p.onSort} className="c-size" />
         </tr>
       </thead>
       <tbody>
-        {p.loading && p.plugins.length === 0 && <SkeletonRows />}
+        {p.loading && p.plugins.length === 0 && <SkeletonRows showUsed={showUsed} />}
         {p.plugins.map(renderRow)}
         {relatedRows.length > 0 && (
           <>
@@ -182,7 +186,7 @@ export function PluginList(p: Props) {
               <td className="c-vendor" />
               <td className="c-chips" />
               <td className="c-version" />
-              <td className="c-used" />
+              {showUsed && <td className="c-used" />}
               <td className="c-size" />
             </tr>
             {relatedRows.map(renderRow)}
@@ -190,7 +194,7 @@ export function PluginList(p: Props) {
         )}
         {!p.loading && p.plugins.length === 0 && relatedRows.length === 0 && (
           <tr>
-            <td colSpan={7} className="empty">
+            <td colSpan={columnCount} className="empty">
               <div className="empty-state">
                 <div className="empty-title">
                   {p.query ? <>No plugins match “{p.query}”</> : "No plugins found"}

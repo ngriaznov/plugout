@@ -86,7 +86,7 @@ export function Inspector({
   onClose,
 }: {
   plugin: Plugin;
-  usage: Usage | null;
+  usage?: Usage | null;
   selected: Set<string>;
   onToggleInstall: (id: string) => void;
   onClose: () => void;
@@ -123,21 +123,23 @@ export function Inspector({
             {plugin.version && <> · v{plugin.version}</>} · {formatBytes(plugin.sizeBytes)}
           </div>
           {plugin.copyright && <div className="inspector-copyright">{plugin.copyright}</div>}
-          <div className="inspector-usage" title="From REAPER (.rpp) and Ableton (.als) project files found on this Mac">
-            {usage ? (
-              <>
-                Used in {usage.projects} project{usage.projects === 1 ? "" : "s"}
-                {usage.lastUsedMs > 0 && (
-                  <> · last {new Date(usage.lastUsedMs).toISOString().slice(0, 10)}</>
-                )}{" "}
-                <button className="ghost small" onClick={() => revealInFinder(usage.lastProject)}>
-                  Reveal
-                </button>
-              </>
-            ) : (
-              <span className="usage-none">Not seen in any DAW project</span>
-            )}
-          </div>
+          {usage !== undefined && (
+            <div className="inspector-usage" title="From REAPER (.rpp) and Ableton (.als) project files found on this Mac">
+              {usage ? (
+                <>
+                  Used in {usage.projects} project{usage.projects === 1 ? "" : "s"}
+                  {usage.lastUsedMs > 0 && (
+                    <> · last {new Date(usage.lastUsedMs).toISOString().slice(0, 10)}</>
+                  )}{" "}
+                  <button className="ghost small" onClick={() => revealInFinder(usage.lastProject)}>
+                    Reveal
+                  </button>
+                </>
+              ) : (
+                <span className="usage-none">Not seen in any DAW project</span>
+              )}
+            </div>
+          )}
         </div>
         <button className="x" aria-label="Close details" onClick={onClose}>✕</button>
       </header>

@@ -111,4 +111,13 @@ describe("usage line", () => {
     expect(screen.queryByText(/1970/)).not.toBeInTheDocument();
     expect(screen.queryByText(/last/)).not.toBeInTheDocument();
   });
+
+  it("renders no usage line at all when the feature is off (undefined)", () => {
+    const plugin = mergePlugins([mk({ id: "a" })])[0];
+    render(
+      <Inspector plugin={plugin} usage={undefined} selected={new Set()} onToggleInstall={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.queryByText(/DAW project/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Used in/)).not.toBeInTheDocument();
+  });
 });

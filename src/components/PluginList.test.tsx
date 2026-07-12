@@ -41,6 +41,7 @@ function baseProps() {
     onToggleAll: vi.fn(),
     onRowClick: vi.fn(),
     onClearSearch: vi.fn(),
+    usage: new Map(),
   };
 }
 
@@ -199,6 +200,15 @@ describe("used column", () => {
     const rows = screen.getAllByRole("row");
     expect(rows[1]).toHaveTextContent("3");
     expect(rows[2].textContent).toContain("—");
+  });
+});
+
+describe("used column gating", () => {
+  it("renders no Used column at all when usage is undefined", () => {
+    render(<PluginList {...baseProps()} plugins={mergePlugins([mk({ id: "a" })])} usage={undefined} />);
+    expect(screen.queryByText("Used")).not.toBeInTheDocument();
+    const cells = screen.getAllByRole("row")[1].querySelectorAll("td");
+    expect(cells).toHaveLength(6);
   });
 });
 

@@ -95,7 +95,11 @@ export default function App() {
   }
 
   function changeSettings(patch: Partial<Settings>) {
-    setSettingsState(setSettings(patch));
+    const next = setSettings(patch);
+    setSettingsState(next);
+    if (patch.usageScan === false && sort.key === "used") {
+      setSort({ key: "name", dir: 1 });
+    }
   }
 
   // Clear state and kick off a fresh streaming scan. Results arrive via the
@@ -162,13 +166,17 @@ export default function App() {
       category: b.category ? CATEGORY_LABELS[b.category] : "",
     }));
     indexSearch(docs).catch((e) => console.warn("semantic index failed", e));
-    scanUsage().then(setUsageHits, (e) => {
-      console.warn("usage scan failed", e);
+    if (settings.usageScan) {
+      scanUsage().then(setUsageHits, (e) => {
+        console.warn("usage scan failed", e);
+        setUsageHits([]);
+      });
+    } else {
       setUsageHits([]);
-    });
+    }
     // Re-index only when a scan completes, not on receipt enrichment churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, settings.usageScan]);
 
   async function doRemove(extraPaths: string[]) {
     setBusy(true);
@@ -364,13 +372,13 @@ export default function App() {
               onRowClick={(p) => setInspectedKey((k) => (k === p.key ? null : p.key))}
               onClearSearch={() => setQuery("")}
               related={related}
-              usage={usage}
+              usage={settings.usageScan ? usage : undefined}
             />
           </div>
           {inspected && (
             <Inspector
               plugin={inspected}
-              usage={usageFor(inspected, usage)}
+              usage={settings.usageScan ? usageFor(inspected, usage) : undefined}
               selected={selected}
               onToggleInstall={toggleInstall}
               onClose={() => setInspectedKey(null)}
