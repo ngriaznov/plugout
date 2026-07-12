@@ -245,6 +245,7 @@ th.c-size .th-btn { justify-content: flex-end; }
 .c-vendor { color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .c-chips { white-space: nowrap; overflow: hidden; }
 .c-version { color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.c-used, .c-used-h { text-align: right; width: 52px; }
 .c-size { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--dim); }
 .dim { color: var(--dim); }
 

@@ -21,7 +21,7 @@ import { exportCsv, exportJson } from "./export";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
-import { gateHits, mergePlugins, sortPlugins, type SortDir, type SortKey } from "./util";
+import { gateHits, matchUsage, mergePlugins, sortPlugins, type SortDir, type SortKey } from "./util";
 import { Sidebar } from "./components/Sidebar";
 import { PluginList } from "./components/PluginList";
 import { Inspector } from "./components/Inspector";
@@ -45,9 +45,7 @@ export default function App() {
   const [themePref, setThemePref] = useState<ThemePref>(getPref);
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
   const [update, setUpdate] = useState<UpdateState>({ phase: "idle" });
-  // Consumed by Task 3's memo; scanned here so it's ready by the time that lands.
   const [usageHits, setUsageHits] = useState<UsageHit[]>([]);
-  void usageHits;
   const toastTimer = useRef<number | null>(null);
   const exportToastTimer = useRef<number | null>(null);
 
@@ -78,7 +76,7 @@ export default function App() {
     setSort((s) =>
       s.key === key
         ? { key, dir: -s.dir as SortDir }
-        : { key, dir: key === "size" ? -1 : 1 }, // size starts biggest-first
+        : { key, dir: key === "size" || key === "used" ? -1 : 1 }, // size/used start biggest-first
     );
 
   useEffect(() => {
@@ -253,9 +251,11 @@ export default function App() {
     return merged.sort((a, b) => best(b) - best(a));
   }, [bundles, relatedHits, query, formatFilter, scopeFilter]);
 
+  const usage = useMemo(() => matchUsage(mergePlugins(bundles), usageHits), [bundles, usageHits]);
+
   const plugins = useMemo(
-    () => sortPlugins(mergePlugins(visible), sort.key, sort.dir),
-    [visible, sort],
+    () => sortPlugins(mergePlugins(visible), sort.key, sort.dir, usage),
+    [visible, sort, usage],
   );
   const allPluginCount = useMemo(() => mergePlugins(bundles).length, [bundles]);
   const inspected =
@@ -349,6 +349,7 @@ export default function App() {
               onRowClick={(p) => setInspectedKey((k) => (k === p.key ? null : p.key))}
               onClearSearch={() => setQuery("")}
               related={related}
+              usage={usage}
             />
           </div>
           {inspected && (

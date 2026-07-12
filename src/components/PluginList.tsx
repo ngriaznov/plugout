@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Plugin } from "../types";
 import { FormatChip } from "./FormatBadge";
 import { prefetchDetails } from "../detailsCache";
-import { formatBytes, type SortDir, type SortKey } from "../util";
+import { formatBytes, type SortDir, type SortKey, type Usage } from "../util";
 
 interface Props {
   plugins: Plugin[];
@@ -18,6 +18,7 @@ interface Props {
   onRowClick: (p: Plugin) => void;
   onClearSearch: () => void;
   related?: Plugin[];
+  usage?: Map<string, Usage>;
 }
 
 function TriCheckbox({
@@ -77,6 +78,7 @@ function SkeletonRows() {
           <td className="c-vendor"><div className="skel" style={{ width: 70 }} /></td>
           <td><div className="skel" style={{ width: 110 }} /></td>
           <td><div className="skel" style={{ width: 54 }} /></td>
+          <td className="c-used" />
           <td className="c-size"><div className="skel skel-right" style={{ width: 52 }} /></td>
         </tr>
       ))}
@@ -128,6 +130,9 @@ export function PluginList(p: Props) {
           ))}
         </td>
         <td className="c-version">{pl.version || "—"}</td>
+        <td className="c-used" title="Projects referencing this plugin (REAPER and Ableton files scanned)">
+          {p.usage?.get(pl.key)?.projects ?? "—"}
+        </td>
         <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
       </tr>
     );
@@ -149,6 +154,7 @@ export function PluginList(p: Props) {
           <SortHeader label="Vendor" k="vendor" sort={p.sort} onSort={p.onSort} className="c-vendor-h" />
           <SortHeader label="Formats" k="formats" sort={p.sort} onSort={p.onSort} className="c-chips-h" />
           <SortHeader label="Version" k="version" sort={p.sort} onSort={p.onSort} className="c-version-h" />
+          <SortHeader label="Used" k="used" sort={p.sort} onSort={p.onSort} className="c-used-h" />
           <SortHeader label="Size" k="size" sort={p.sort} onSort={p.onSort} className="c-size" />
         </tr>
       </thead>
@@ -166,6 +172,7 @@ export function PluginList(p: Props) {
               <td className="c-vendor" />
               <td className="c-chips" />
               <td className="c-version" />
+              <td className="c-used" />
               <td className="c-size" />
             </tr>
             {relatedRows.map(renderRow)}
@@ -173,7 +180,7 @@ export function PluginList(p: Props) {
         )}
         {!p.loading && p.plugins.length === 0 && relatedRows.length === 0 && (
           <tr>
-            <td colSpan={6} className="empty">
+            <td colSpan={7} className="empty">
               <div className="empty-state">
                 <div className="empty-title">
                   {p.query ? <>No plugins match “{p.query}”</> : "No plugins found"}

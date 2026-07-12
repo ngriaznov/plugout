@@ -350,3 +350,21 @@ describe("matchUsage", () => {
     expect(usage.size).toBe(0);
   });
 });
+
+describe("sortPlugins by usage", () => {
+  it("orders by lastUsedMs desc and keeps unseen plugins last in both directions", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Alpha", vendor: "V", bundleId: "com.v.a" }),
+      mk({ id: "b", name: "Beta", vendor: "V", bundleId: "com.v.b" }),
+      mk({ id: "c", name: "Gamma", vendor: "V", bundleId: "com.v.c" }),
+    ]);
+    const usage = new Map([
+      [plugins.find((p) => p.name === "Alpha")!.key, { projects: 1, lastUsedMs: 100, lastProject: "/1" }],
+      [plugins.find((p) => p.name === "Gamma")!.key, { projects: 2, lastUsedMs: 900, lastProject: "/2" }],
+    ]);
+    const desc = sortPlugins(plugins, "used", -1, usage).map((p) => p.name);
+    expect(desc).toEqual(["Gamma", "Alpha", "Beta"]);
+    const asc = sortPlugins(plugins, "used", 1, usage).map((p) => p.name);
+    expect(asc).toEqual(["Alpha", "Gamma", "Beta"]); // unseen still last
+  });
+});

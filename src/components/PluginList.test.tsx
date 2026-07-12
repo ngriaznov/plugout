@@ -187,6 +187,21 @@ describe("PluginList empty state", () => {
   });
 });
 
+describe("used column", () => {
+  it("shows project counts and a dash for unseen plugins", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Alpha", vendor: "V", bundleId: "com.v.a" }),
+      mk({ id: "b", name: "Beta", vendor: "V", bundleId: "com.v.b" }),
+    ]);
+    const usage = new Map([[plugins[0].key, { projects: 3, lastUsedMs: 1, lastProject: "/p" }]]);
+    render(<PluginList {...baseProps()} plugins={plugins} usage={usage} />);
+    expect(screen.getByText("Used")).toBeInTheDocument();
+    const rows = screen.getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("3");
+    expect(rows[2].textContent).toContain("—");
+  });
+});
+
 describe("related results", () => {
   it("renders a divider and related rows when related plugins are present", () => {
     const related = mergePlugins([mk({ id: "r1", name: "ValhallaVintageVerb", vendor: "Valhalla DSP" })]);
@@ -202,7 +217,7 @@ describe("related results", () => {
     const related = mergePlugins([mk({ id: "r1", name: "ValhallaVintageVerb", vendor: "Valhalla DSP" })]);
     render(<PluginList {...baseProps()} plugins={mergePlugins([mk({ id: "a" })])} related={related} />);
     const divider = screen.getByText("Related matches").closest("tr")!;
-    expect(divider.querySelectorAll("td")).toHaveLength(6);
+    expect(divider.querySelectorAll("td")).toHaveLength(7);
     expect(divider.querySelector("td[colspan]")).toBeNull();
   });
 

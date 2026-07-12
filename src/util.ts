@@ -175,10 +175,10 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-export type SortKey = "name" | "vendor" | "formats" | "version" | "size";
+export type SortKey = "name" | "vendor" | "formats" | "version" | "size" | "used";
 export type SortDir = 1 | -1;
 
-const COMPARATORS: Record<SortKey, (a: Plugin, b: Plugin) => number> = {
+const COMPARATORS: Record<Exclude<SortKey, "used">, (a: Plugin, b: Plugin) => number> = {
   name: byName,
   vendor: (a, b) => a.vendor.toLowerCase().localeCompare(b.vendor.toLowerCase()),
   formats: (a, b) => a.installs.length - b.installs.length,
@@ -186,8 +186,25 @@ const COMPARATORS: Record<SortKey, (a: Plugin, b: Plugin) => number> = {
   size: (a, b) => a.sizeBytes - b.sizeBytes,
 };
 
-export function sortPlugins(plugins: Plugin[], key: SortKey, dir: SortDir): Plugin[] {
-  const cmp = COMPARATORS[key];
+export function sortPlugins(
+  plugins: Plugin[],
+  key: SortKey,
+  dir: SortDir,
+  usage?: Map<string, Usage>,
+): Plugin[] {
+  if (key === "used") {
+    const last = (p: Plugin) => usage?.get(p.key)?.lastUsedMs;
+    // Unseen plugins stay last regardless of direction — "sort by usage"
+    // means "show me evidence", and no-evidence rows aren't evidence.
+    return [...plugins].sort((a, b) => {
+      const [la, lb] = [last(a), last(b)];
+      if (la === undefined && lb === undefined) return byName(a, b);
+      if (la === undefined) return 1;
+      if (lb === undefined) return -1;
+      return dir * (la - lb) || byName(a, b);
+    });
+  }
+  const cmp = COMPARATORS[key as Exclude<SortKey, "used">];
   return [...plugins].sort((a, b) => dir * cmp(a, b) || byName(a, b));
 }
 
