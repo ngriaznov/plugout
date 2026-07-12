@@ -2,7 +2,7 @@
 //! function-word queries ("reverb", "equalizer") can match plugins whose
 //! names are brand words. Static data, additive matching, no IO.
 
-/// Lowercase + strip non-alphanumerics (mirrors the frontend grouping fold).
+/// Strip non-alphanumerics + lowercase (mirrors the frontend grouping fold).
 fn fold(s: &str) -> String {
     s.chars()
         .filter(|c| c.is_ascii_alphanumeric())
@@ -17,7 +17,7 @@ const VENDOR_KEYWORDS: &[(&str, &str)] = &[
     ("valhalla", "reverb delay echo"),
     ("fabfilter", "equalizer compressor limiter filter mixing"),
     ("talsoftware", "analog synthesizer effect"),
-    ("d16group", "drum machine bass synthesizer"),
+    ("d16group", "drum machine"),
     ("xfer", "wavetable synthesizer"),
     ("nativeinstruments", "sampler synthesizer drums"),
     ("izotope", "mastering mixing equalizer restoration"),
@@ -34,7 +34,6 @@ const VENDOR_KEYWORDS: &[(&str, &str)] = &[
         "modular oscillator synthesizer percussion",
     ),
     ("discodsp", "synthesizer sampler"),
-    ("mok", "wavetable synthesizer"),
     ("appliedacoustics", "physical modeling synthesizer"),
     ("tracktion", "synthesizer"),
     ("madronalabs", "synthesizer additive modular"),
@@ -65,8 +64,6 @@ const NAME_KEYWORDS: &[(&str, &str)] = &[
     ("battery", "drums sampler"),
     ("serum", "wavetable synthesizer"),
     ("retromulator", "vintage sampler"),
-    ("waverazor", "wavetable synthesizer"),
-    ("miniraze", "wavetable synthesizer"),
     ("mariana", "analog bass synthesizer"),
 ];
 
