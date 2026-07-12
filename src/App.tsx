@@ -175,6 +175,8 @@ export default function App() {
       setUsageHits([]);
     }
     // Re-index only when a scan completes, not on receipt enrichment churn.
+    // Toggling the usage setting also re-runs this effect (and therefore the
+    // re-index) by design, so the usage scan can start/stop immediately.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, settings.usageScan]);
 

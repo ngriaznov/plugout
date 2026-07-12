@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.7
+
+- Added a Settings dialog. DAW project scanning is now opt-in and off by
+  default, since it can trigger macOS folder-access prompts — enable it in
+  Settings.
+
 ## 0.2.6
 
 - New Used column shows, per plugin, how many REAPER and Ableton projects

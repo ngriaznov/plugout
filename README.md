@@ -55,7 +55,8 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   embedding model ranks every installed plugin against the query. No network involved.
 - **Shows what you actually use.** plugout scans REAPER and Ableton project files on
   your Mac and shows, per plugin, how many projects reference it and when it was last
-  used — sort by the Used column to find safe delete candidates.
+  used — sort by the Used column to find safe delete candidates. Off by default —
+  enable it in Settings.
 - **One-click inventory export.** The Export button writes
   `plugout-inventory-<date>.csv` and `.json` to Downloads — every product, install,
   version, path and installer package.
@@ -94,7 +95,7 @@ files, guarded so nothing shared with surviving plugins is ever offered. Removal
 uses the macOS Trash API for user files and a single `with administrator privileges`
 shell call for the whole system-scope batch. Project usage comes from Spotlight-located
 .rpp/.als files, parsed for their plugin reference blocks — read-only, skipped silently
-when unreadable.
+when unreadable, and only run when the usage scan is enabled in Settings.
 
 Semantic search runs in-process: a vendored copy of
 [ternlight](https://github.com/soycaporal/ternlight)'s int8 inference engine embeds
