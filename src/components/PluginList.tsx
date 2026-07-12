@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Plugin } from "../types";
 import { FormatChip } from "./FormatBadge";
 import { prefetchDetails } from "../detailsCache";
-import { formatBytes, type SortDir, type SortKey, type Usage } from "../util";
+import { formatBytes, usageFor, type SortDir, type SortKey, type Usage } from "../util";
 
 interface Props {
   plugins: Plugin[];
@@ -131,7 +131,7 @@ export function PluginList(p: Props) {
         </td>
         <td className="c-version">{pl.version || "—"}</td>
         <td className="c-used" title="Projects referencing this plugin (REAPER and Ableton files scanned)">
-          {p.usage?.get(pl.key)?.projects ?? "—"}
+          {(p.usage && usageFor(pl, p.usage)?.projects) ?? "—"}
         </td>
         <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
       </tr>

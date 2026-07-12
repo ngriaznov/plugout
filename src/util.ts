@@ -193,7 +193,7 @@ export function sortPlugins(
   usage?: Map<string, Usage>,
 ): Plugin[] {
   if (key === "used") {
-    const last = (p: Plugin) => usage?.get(p.key)?.lastUsedMs;
+    const last = (p: Plugin) => (usage ? usageFor(p, usage)?.lastUsedMs : undefined);
     // Unseen plugins stay last regardless of direction — "sort by usage"
     // means "show me evidence", and no-evidence rows aren't evidence.
     return [...plugins].sort((a, b) => {
@@ -259,6 +259,13 @@ const refMatches = (hit: UsageHitLike, name: string, vendor: string): boolean =>
   return [...small].every((t) => big.has(t));
 };
 
+// Keyed by install bundle id, not Plugin.key: mergePlugins can assign a
+// different key to the same product depending on which bundles are present
+// (a filtered/visible-only merge vs. the full merge), so a key-based lookup
+// built from the full merge silently misses in filtered views. Bundle ids
+// are stable identities of the individual installs regardless of which
+// merge grouped them, so every install of a matched plugin gets an entry
+// carrying the same aggregated Usage value.
 export function matchUsage(plugins: Plugin[], hits: UsageHitLike[]): Map<string, Usage> {
   const out = new Map<string, Usage & { seen: Set<string> }>();
   for (const p of plugins) {
@@ -274,5 +281,22 @@ export function matchUsage(plugins: Plugin[], hits: UsageHitLike[]): Map<string,
       out.set(p.key, u);
     }
   }
-  return new Map([...out].map(([k, { seen: _seen, ...u }]) => [k, u]));
+  const byInstallId = new Map<string, Usage>();
+  for (const p of plugins) {
+    const found = out.get(p.key);
+    if (!found) continue;
+    const { seen: _seen, ...u } = found;
+    for (const b of p.installs) byInstallId.set(b.id, u);
+  }
+  return byInstallId;
+}
+
+/** Usage for a plugin row regardless of which merge produced it: any of its
+ * installs' ids resolves to the product's usage from the full-bundle merge. */
+export function usageFor(plugin: Plugin, usage: Map<string, Usage>): Usage | null {
+  for (const b of plugin.installs) {
+    const u = usage.get(b.id);
+    if (u) return u;
+  }
+  return null;
 }

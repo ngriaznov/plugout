@@ -21,7 +21,7 @@ import { exportCsv, exportJson } from "./export";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
-import { gateHits, matchUsage, mergePlugins, sortPlugins, type SortDir, type SortKey } from "./util";
+import { gateHits, matchUsage, mergePlugins, sortPlugins, usageFor, type SortDir, type SortKey } from "./util";
 import { Sidebar } from "./components/Sidebar";
 import { PluginList } from "./components/PluginList";
 import { Inspector } from "./components/Inspector";
@@ -355,7 +355,7 @@ export default function App() {
           {inspected && (
             <Inspector
               plugin={inspected}
-              usage={usage.get(inspected.key) ?? null}
+              usage={usageFor(inspected, usage)}
               selected={selected}
               onToggleInstall={toggleInstall}
               onClose={() => setInspectedKey(null)}

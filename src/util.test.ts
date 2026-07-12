@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBytes, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage } from "./util";
+import { formatBytes, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage, usageFor } from "./util";
 import type { PluginBundle, Format, Scope } from "./types";
 
 describe("formatBytes", () => {
@@ -328,7 +328,9 @@ describe("matchUsage", () => {
       hit("Ozone 12 Vintage Limiter", "iZotope", "/p/two.RPP", 300),
       hit("Ozone 12 Vintage Limiter", "iZotope", "/p/two.RPP", 300), // same project twice
     ]);
-    expect(usage.get(plugins[0].key)).toEqual({ projects: 2, lastUsedMs: 300, lastProject: "/p/two.RPP" });
+    expect(usage.get(plugins[0].installs[0].id)).toEqual({
+      projects: 2, lastUsedMs: 300, lastProject: "/p/two.RPP",
+    });
   });
 
   it("matches vendor-less hits by name alone and family variants by token subset", () => {
@@ -336,7 +338,7 @@ describe("matchUsage", () => {
       mk({ id: "t", name: "TAL-Reverb-4", vendor: "TAL Software", bundleId: "com.tal.reverb4" }),
     ]);
     const usage = matchUsage(plugins, [hit("TAL Reverb 4 Plugin", "", "/p/x.als", 50)]);
-    expect(usage.get(plugins[0].key)?.projects).toBe(1);
+    expect(usage.get(plugins[0].installs[0].id)?.projects).toBe(1);
   });
 
   it("does not match different digits or unrelated names", () => {
@@ -351,6 +353,42 @@ describe("matchUsage", () => {
   });
 });
 
+describe("usageFor survives filtered merges", () => {
+  const hit = (name: string, vendor: string, project: string, mtimeMs: number) =>
+    ({ name, vendor, project, mtimeMs });
+
+  it("resolves usage for a plugin row regardless of which merge produced it", () => {
+    const auBundle = mk({
+      id: "au1", name: "VCV Rack 2", vendor: "VCV", format: "AU", bundleId: "com.vcvrack.rack",
+    });
+    const vst3Bundle = mk({
+      id: "vst3-1", name: "VCV Rack 2", vendor: "vcvrack", format: "VST3", bundleId: "com.vcvrack.rack",
+    });
+    const full = mergePlugins([auBundle, vst3Bundle]);
+    expect(full).toHaveLength(1);
+    const usage = matchUsage(full, [hit("VCV Rack 2", "VCV", "/p/one.als", 100)]);
+    expect(usage.size).toBeGreaterThan(0);
+
+    // A filtered view (e.g. format filter narrows to VST3 only) re-runs
+    // mergePlugins over a subset of bundles, which can produce a different
+    // Plugin.key for the same product than the full-bundle merge did.
+    const filteredVisible = mergePlugins([vst3Bundle]);
+    expect(filteredVisible).toHaveLength(1);
+    const filteredPlugin = filteredVisible[0];
+
+    expect(usageFor(filteredPlugin, usage)).toEqual({
+      projects: 1,
+      lastUsedMs: 100,
+      lastProject: "/p/one.als",
+    });
+  });
+
+  it("returns null when no install resolves", () => {
+    const plugins = mergePlugins([mk({ id: "z", name: "Zebra", vendor: "Z", bundleId: "com.z.zebra" })]);
+    expect(usageFor(plugins[0], new Map())).toBeNull();
+  });
+});
+
 describe("sortPlugins by usage", () => {
   it("orders by lastUsedMs desc and keeps unseen plugins last in both directions", () => {
     const plugins = mergePlugins([
@@ -359,8 +397,8 @@ describe("sortPlugins by usage", () => {
       mk({ id: "c", name: "Gamma", vendor: "V", bundleId: "com.v.c" }),
     ]);
     const usage = new Map([
-      [plugins.find((p) => p.name === "Alpha")!.key, { projects: 1, lastUsedMs: 100, lastProject: "/1" }],
-      [plugins.find((p) => p.name === "Gamma")!.key, { projects: 2, lastUsedMs: 900, lastProject: "/2" }],
+      [plugins.find((p) => p.name === "Alpha")!.installs[0].id, { projects: 1, lastUsedMs: 100, lastProject: "/1" }],
+      [plugins.find((p) => p.name === "Gamma")!.installs[0].id, { projects: 2, lastUsedMs: 900, lastProject: "/2" }],
     ]);
     const desc = sortPlugins(plugins, "used", -1, usage).map((p) => p.name);
     expect(desc).toEqual(["Gamma", "Alpha", "Beta"]);

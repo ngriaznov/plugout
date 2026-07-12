@@ -193,7 +193,7 @@ describe("used column", () => {
       mk({ id: "a", name: "Alpha", vendor: "V", bundleId: "com.v.a" }),
       mk({ id: "b", name: "Beta", vendor: "V", bundleId: "com.v.b" }),
     ]);
-    const usage = new Map([[plugins[0].key, { projects: 3, lastUsedMs: 1, lastProject: "/p" }]]);
+    const usage = new Map([[plugins[0].installs[0].id, { projects: 3, lastUsedMs: 1, lastProject: "/p" }]]);
     render(<PluginList {...baseProps()} plugins={plugins} usage={usage} />);
     expect(screen.getByText("Used")).toBeInTheDocument();
     const rows = screen.getAllByRole("row");
