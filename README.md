@@ -46,7 +46,7 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   install's version, size, location, bundle ID, which macOS installer package placed it
   (`pkgutil` receipt), and exactly which files a removal will touch. One click to reveal
   any bundle in Finder.
-- Sortable columns — name, vendor, format count, version (numeric-aware), size.
+- Sortable columns — name, vendor, format count, version (numeric-aware), size, last used.
 - **Removal moves bundles to the Trash**, never deletes. User-scope plugins need no
   privileges; system-scope removals ask for an administrator password once per batch,
   not once per plugin.

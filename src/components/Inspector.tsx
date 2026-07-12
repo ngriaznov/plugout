@@ -126,8 +126,10 @@ export function Inspector({
           <div className="inspector-usage" title="From REAPER (.rpp) and Ableton (.als) project files found on this Mac">
             {usage ? (
               <>
-                Used in {usage.projects} project{usage.projects === 1 ? "" : "s"} · last{" "}
-                {new Date(usage.lastUsedMs).toISOString().slice(0, 10)}{" "}
+                Used in {usage.projects} project{usage.projects === 1 ? "" : "s"}
+                {usage.lastUsedMs > 0 && (
+                  <> · last {new Date(usage.lastUsedMs).toISOString().slice(0, 10)}</>
+                )}{" "}
                 <button className="ghost small" onClick={() => revealInFinder(usage.lastProject)}>
                   Reveal
                 </button>

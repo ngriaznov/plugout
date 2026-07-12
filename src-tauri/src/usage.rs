@@ -35,7 +35,7 @@ pub fn parse_rpp(text: &str) -> Vec<PluginRef> {
     for line in text.lines() {
         let l = line.trim_start();
         let Some(rest) = [
-            "<VST ", "<VSTi ", "<AU ", "<AUi ", "<CLAP ", "<CLAPi ", "<LV2 ",
+            "<VST ", "<VSTi ", "<AU ", "<AUi ", "<CLAP ", "<CLAPi ", "<LV2 ", "<LV2i ",
         ]
         .iter()
         .find_map(|p| l.strip_prefix(p)) else {
@@ -250,6 +250,24 @@ mod tests {
             vendor: "Surge Synth Team".into()
         }));
         assert!(refs.iter().all(|r| !r.name.contains("volume")));
+    }
+
+    #[test]
+    fn rpp_extracts_lv2i_instrument() {
+        let rpp = r#"
+  <TRACK
+    <FXCHAIN
+      <LV2i "LV2i: Vitalium (Matt Tytel)" "vitalium#Vitalium" 0 "" 1{56}
+      >
+    >
+  >
+"#;
+        let refs = parse_rpp(rpp);
+        assert_eq!(refs.len(), 1);
+        assert!(refs.contains(&PluginRef {
+            name: "Vitalium".into(),
+            vendor: "Matt Tytel".into()
+        }));
     }
 
     fn gz(xml: &str) -> Vec<u8> {

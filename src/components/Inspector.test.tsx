@@ -95,4 +95,20 @@ describe("usage line", () => {
     );
     expect(screen.getByText(/Not seen in any DAW project/)).toBeInTheDocument();
   });
+
+  it("omits the last-used date when lastUsedMs is 0 (no real timestamp)", () => {
+    const plugin = mergePlugins([mk({ id: "a" })])[0];
+    render(
+      <Inspector
+        plugin={plugin}
+        usage={{ projects: 1, lastUsedMs: 0, lastProject: "/p/x.RPP" }}
+        selected={new Set()}
+        onToggleInstall={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Used in 1 project/)).toBeInTheDocument();
+    expect(screen.queryByText(/1970/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/last/)).not.toBeInTheDocument();
+  });
 });

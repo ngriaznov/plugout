@@ -45,17 +45,20 @@ function SortHeader({
   sort,
   onSort,
   className,
+  title,
 }: {
   label: string;
   k: SortKey;
   sort: { key: SortKey; dir: SortDir };
   onSort: (key: SortKey) => void;
   className?: string;
+  title?: string;
 }) {
   const active = sort.key === k;
   return (
     <th
       className={className}
+      title={title}
       aria-sort={active ? (sort.dir === 1 ? "ascending" : "descending") : undefined}
     >
       <button type="button" className="th-btn" onClick={() => onSort(k)}>
@@ -130,7 +133,7 @@ export function PluginList(p: Props) {
           ))}
         </td>
         <td className="c-version">{pl.version || "—"}</td>
-        <td className="c-used" title="Projects referencing this plugin (REAPER and Ableton files scanned)">
+        <td className="c-used">
           {(p.usage && usageFor(pl, p.usage)?.projects) ?? "—"}
         </td>
         <td className="c-size">{formatBytes(pl.sizeBytes)}</td>
@@ -154,7 +157,14 @@ export function PluginList(p: Props) {
           <SortHeader label="Vendor" k="vendor" sort={p.sort} onSort={p.onSort} className="c-vendor-h" />
           <SortHeader label="Formats" k="formats" sort={p.sort} onSort={p.onSort} className="c-chips-h" />
           <SortHeader label="Version" k="version" sort={p.sort} onSort={p.onSort} className="c-version-h" />
-          <SortHeader label="Used" k="used" sort={p.sort} onSort={p.onSort} className="c-used-h" />
+          <SortHeader
+            label="Used"
+            k="used"
+            sort={p.sort}
+            onSort={p.onSort}
+            className="c-used-h"
+            title="Projects referencing this plugin (REAPER and Ableton files scanned)"
+          />
           <SortHeader label="Size" k="size" sort={p.sort} onSort={p.onSort} className="c-size" />
         </tr>
       </thead>
