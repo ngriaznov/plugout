@@ -204,3 +204,58 @@ export function gateHits<T extends { score: number }>(hits: T[]): T[] {
   const gate = hits[0].score * GATE_RATIO;
   return hits.filter((h) => h.score >= gate).slice(0, GATE_CAP);
 }
+
+export interface Usage {
+  projects: number;
+  lastUsedMs: number;
+  lastProject: string;
+}
+
+interface UsageHitLike {
+  name: string;
+  vendor: string;
+  project: string;
+  mtimeMs: number;
+}
+
+const foldId = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+// A project reference matches an install when names agree (exact fold, or
+// same digits + token-subset for family variants like "TAL Reverb 4 Plugin")
+// and vendors don't disagree (empty ref vendor = unknown = no veto).
+// foldId("") is "" and "x".includes("") is true, which is why the explicit
+// hit.vendor === "" branch below comes first: it lets an unknown hit vendor
+// match anything, but keeps the includes() checks from letting an install
+// with an empty vendor accidentally match every hit vendor (an install
+// with no vendor has no vendor evidence to veto on either, so that's fine).
+const refMatches = (hit: UsageHitLike, name: string, vendor: string): boolean => {
+  const vendorOk =
+    hit.vendor === "" ||
+    foldId(vendor).includes(foldId(hit.vendor)) ||
+    foldId(hit.vendor).includes(foldId(vendor));
+  if (!vendorOk) return false;
+  if (foldId(hit.name) === foldId(name)) return true;
+  const [a, b] = [tokensOf(hit.name), tokensOf(name)];
+  if (digitsOf(a) !== digitsOf(b)) return false;
+  const [sa, sb] = [new Set(a), new Set(b)];
+  const [small, big] = sa.size <= sb.size ? [sa, sb] : [sb, sa];
+  return [...small].every((t) => big.has(t));
+};
+
+export function matchUsage(plugins: Plugin[], hits: UsageHitLike[]): Map<string, Usage> {
+  const out = new Map<string, Usage & { seen: Set<string> }>();
+  for (const p of plugins) {
+    for (const hit of hits) {
+      if (!p.installs.some((b) => refMatches(hit, b.name, b.vendor))) continue;
+      const u = out.get(p.key) ?? { projects: 0, lastUsedMs: 0, lastProject: "", seen: new Set<string>() };
+      u.seen.add(hit.project);
+      u.projects = u.seen.size;
+      if (hit.mtimeMs >= u.lastUsedMs) {
+        u.lastUsedMs = hit.mtimeMs;
+        u.lastProject = hit.project;
+      }
+      out.set(p.key, u);
+    }
+  }
+  return new Map([...out].map(([k, { seen: _seen, ...u }]) => [k, u]));
+}

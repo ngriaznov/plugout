@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBytes, mergePlugins, sortPlugins, compareVersions, gateHits } from "./util";
+import { formatBytes, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage } from "./util";
 import type { PluginBundle, Format, Scope } from "./types";
 
 describe("formatBytes", () => {
@@ -312,5 +312,41 @@ describe("sortPlugins", () => {
     const before = plugins.map((p) => p.key);
     sortPlugins(plugins, "size", -1);
     expect(plugins.map((p) => p.key)).toEqual(before);
+  });
+});
+
+describe("matchUsage", () => {
+  const hit = (name: string, vendor: string, project: string, mtimeMs: number) =>
+    ({ name, vendor, project, mtimeMs });
+
+  it("matches by folded name with containment vendors, counting distinct projects", () => {
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Ozone 12 Vintage Limiter", vendor: "iZotope, Inc.", bundleId: "com.izotope.vl12" }),
+    ]);
+    const usage = matchUsage(plugins, [
+      hit("Ozone 12 Vintage Limiter", "iZotope", "/p/one.RPP", 100),
+      hit("Ozone 12 Vintage Limiter", "iZotope", "/p/two.RPP", 300),
+      hit("Ozone 12 Vintage Limiter", "iZotope", "/p/two.RPP", 300), // same project twice
+    ]);
+    expect(usage.get(plugins[0].key)).toEqual({ projects: 2, lastUsedMs: 300, lastProject: "/p/two.RPP" });
+  });
+
+  it("matches vendor-less hits by name alone and family variants by token subset", () => {
+    const plugins = mergePlugins([
+      mk({ id: "t", name: "TAL-Reverb-4", vendor: "TAL Software", bundleId: "com.tal.reverb4" }),
+    ]);
+    const usage = matchUsage(plugins, [hit("TAL Reverb 4 Plugin", "", "/p/x.als", 50)]);
+    expect(usage.get(plugins[0].key)?.projects).toBe(1);
+  });
+
+  it("does not match different digits or unrelated names", () => {
+    const plugins = mergePlugins([
+      mk({ id: "q3", name: "Pro-Q 3", vendor: "FabFilter", bundleId: "com.ff.q3" }),
+    ]);
+    const usage = matchUsage(plugins, [
+      hit("Pro-Q 4", "FabFilter", "/p/a.RPP", 1),
+      hit("Serum", "Xfer Records", "/p/a.RPP", 1),
+    ]);
+    expect(usage.size).toBe(0);
   });
 });
