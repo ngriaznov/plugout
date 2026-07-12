@@ -8,6 +8,11 @@
 - Project usage is found by scanning Spotlight-located .rpp/.als files for
   their plugin reference blocks, read-only and skipped silently when a
   project file can't be parsed.
+- Related search now also reads each VST3 bundle's own moduleinfo.json
+  subcategories (EQ, Dynamics, Reverb…), so queries like "equalizer" and
+  "compressor" match plugins by what they are, not just by name.
+- Fixed the plugin table collapsing (blank names, clipped format chips) when
+  the Related section was visible on narrow windows.
 
 ## 0.2.5
 
