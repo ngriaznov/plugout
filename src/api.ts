@@ -10,6 +10,7 @@ import {
   mockListen,
   mockIndexSearch,
   mockSemanticSearch,
+  mockSaveExport,
 } from "./api.mock";
 
 // Outside a Tauri window (plain `vite` in a browser) fall back to the mock
@@ -69,3 +70,10 @@ export const onReceiptUpdate = (cb: (updates: ReceiptUpdate[]) => void): Promise
 
 export const onEnrichDone = (cb: () => void): Promise<UnlistenFn> =>
   on<null>("enrich:done", cb);
+
+export interface ExportFile {
+  name: string;
+  contents: string;
+}
+export const saveExport = (files: ExportFile[]) =>
+  isTauri ? invoke<string>("save_export", { files }) : mockSaveExport();

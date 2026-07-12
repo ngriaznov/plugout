@@ -134,3 +134,5 @@ export const mockListen = <T>(event: string, cb: (payload: T) => void): Promise<
 
 export const mockIndexSearch = async (): Promise<void> => {};
 export const mockSemanticSearch = async (): Promise<{ id: string; score: number }[]> => [];
+
+export const mockSaveExport = async (): Promise<string> => "/tmp";

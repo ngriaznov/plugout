@@ -11,8 +11,11 @@ import {
   onEnrichDone,
   indexSearch,
   semanticSearch,
+  saveExport,
+  revealInFinder,
   type SearchHit,
 } from "./api";
+import { exportCsv, exportJson } from "./export";
 import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
@@ -36,6 +39,7 @@ export default function App() {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<RemovalResult[] | null>(null);
+  const [exportedDir, setExportedDir] = useState<string | null>(null);
   const [themePref, setThemePref] = useState<ThemePref>(getPref);
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
   const [update, setUpdate] = useState<UpdateState>({ phase: "idle" });
@@ -156,6 +160,22 @@ export default function App() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     const hasFailures = res.some((r) => r.status === "failed");
     toastTimer.current = window.setTimeout(() => setResults(null), hasFailures ? 10000 : 6000);
+  }
+
+  async function doExport() {
+    const all = sortPlugins(mergePlugins(bundles), "name", 1);
+    const stamp = new Date().toISOString().slice(0, 10);
+    try {
+      const dir = await saveExport([
+        { name: `plugout-inventory-${stamp}.csv`, contents: exportCsv(all) },
+        { name: `plugout-inventory-${stamp}.json`, contents: exportJson(all) },
+      ]);
+      setExportedDir(dir);
+    } catch {
+      setExportedDir("error");
+    }
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setExportedDir(null), 6000);
   }
 
   const visible = useMemo(
@@ -293,6 +313,9 @@ export default function App() {
           </div>
           <div className="spacer" />
           <UpdatePill state={update} onDownload={startUpdate} onRestart={restartApp} />
+          <button className="ghost small" onClick={doExport} disabled={loading || bundles.length === 0}>
+            Export
+          </button>
           <button className="ghost small" onClick={rescan} disabled={loading}>
             Rescan
           </button>
@@ -353,6 +376,21 @@ export default function App() {
               <span className="toast-fail">
                 {" "}· {failed.length} failed{failed[0]?.message ? ` — ${failed[0].message}` : ""}
               </span>
+            )}
+          </div>
+        )}
+
+        {exportedDir && !results && (
+          <div className={`toast${exportedDir === "error" ? " toast-error" : ""}`} role="status">
+            {exportedDir === "error" ? (
+              <strong>Export failed</strong>
+            ) : (
+              <>
+                <strong>Inventory exported to Downloads</strong>{" "}
+                <button className="ghost small" onClick={() => revealInFinder(exportedDir)}>
+                  Reveal
+                </button>
+              </>
             )}
           </div>
         )}

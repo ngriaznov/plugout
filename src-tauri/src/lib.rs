@@ -45,6 +45,7 @@ pub fn run() {
             commands::remove_items,
             commands::removal_preview,
             commands::reveal_in_finder,
+            commands::save_export,
             commands::index_search,
             commands::semantic_search,
         ])

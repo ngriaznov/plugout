@@ -247,10 +247,45 @@ pub fn semantic_search(
     crate::search::top_hits(&state.0.lock().unwrap_or_else(|e| e.into_inner()), &q)
 }
 
+#[derive(Deserialize)]
+pub struct ExportFile {
+    pub name: String,
+    pub contents: String,
+}
+
+/// Reject names with path separators or empty names, so exported files can
+/// only ever land directly inside the target directory.
+fn valid_export_name(name: &str) -> bool {
+    !name.is_empty() && !name.contains('/') && !name.contains('\\')
+}
+
+/// Write export files into the user's Downloads folder; returns that folder's
+/// path so the frontend can reveal it. Rejects names with path separators.
+#[tauri::command]
+pub fn save_export(app: AppHandle, files: Vec<ExportFile>) -> Result<String, String> {
+    use tauri::Manager;
+    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    for f in &files {
+        if !valid_export_name(&f.name) {
+            return Err(format!("invalid export file name: {}", f.name));
+        }
+        std::fs::write(dir.join(&f.name), &f.contents).map_err(|e| e.to_string())?;
+    }
+    Ok(dir.to_string_lossy().into_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Instant;
+
+    #[test]
+    fn export_names_reject_path_separators() {
+        assert!(valid_export_name("plugout-inventory-2026-07-12.csv"));
+        assert!(!valid_export_name("../evil.csv"));
+        assert!(!valid_export_name("a\\b.csv"));
+        assert!(!valid_export_name(""));
+    }
 
     /// Full real-system pipeline with timings (not run in CI):
     /// `cargo test full_pipeline -- --ignored --nocapture`
