@@ -37,6 +37,7 @@ describe("Inspector install selection", () => {
     render(
       <Inspector
         plugin={plugin}
+        usage={null}
         selected={new Set(["au1"])}
         onToggleInstall={vi.fn()}
         onClose={vi.fn()}
@@ -52,7 +53,7 @@ describe("Inspector install selection", () => {
     const onToggle = vi.fn();
     const plugin = mergePlugins([mk({ id: "au1", format: "AU" }), mk({ id: "v31", format: "VST3" })])[0];
     render(
-      <Inspector plugin={plugin} selected={new Set()} onToggleInstall={onToggle} onClose={vi.fn()} />,
+      <Inspector plugin={plugin} usage={null} selected={new Set()} onToggleInstall={onToggle} onClose={vi.fn()} />,
     );
     await userEvent.click(screen.getAllByRole("checkbox")[1]);
     expect(onToggle).toHaveBeenCalledWith("v31");
@@ -64,9 +65,34 @@ describe("Inspector install selection", () => {
       mk({ id: "au-usr", format: "AU", scope: "user" }),
     ])[0];
     render(
-      <Inspector plugin={plugin} selected={new Set()} onToggleInstall={vi.fn()} onClose={vi.fn()} />,
+      <Inspector plugin={plugin} usage={null} selected={new Set()} onToggleInstall={vi.fn()} onClose={vi.fn()} />,
     );
     expect(screen.getByLabelText("Select user AU install")).toBeInTheDocument();
     expect(screen.getByLabelText("Select system AU install")).toBeInTheDocument();
+  });
+});
+
+describe("usage line", () => {
+  it("shows count and last-used date with a reveal affordance", () => {
+    const plugin = mergePlugins([mk({ id: "a" })])[0];
+    render(
+      <Inspector
+        plugin={plugin}
+        usage={{ projects: 3, lastUsedMs: Date.UTC(2026, 0, 23), lastProject: "/p/AD System Demo.RPP" }}
+        selected={new Set()}
+        onToggleInstall={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Used in 3 projects/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-01-23/)).toBeInTheDocument();
+  });
+
+  it("states the negative honestly when usage is null", () => {
+    const plugin = mergePlugins([mk({ id: "a" })])[0];
+    render(
+      <Inspector plugin={plugin} usage={null} selected={new Set()} onToggleInstall={vi.fn()} onClose={vi.fn()} />,
+    );
+    expect(screen.getByText(/Not seen in any DAW project/)).toBeInTheDocument();
   });
 });

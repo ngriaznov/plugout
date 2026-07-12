@@ -355,6 +355,7 @@ export default function App() {
           {inspected && (
             <Inspector
               plugin={inspected}
+              usage={usage.get(inspected.key) ?? null}
               selected={selected}
               onToggleInstall={toggleInstall}
               onClose={() => setInspectedKey(null)}

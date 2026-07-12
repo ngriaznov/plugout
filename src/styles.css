@@ -357,6 +357,7 @@ th.c-size .th-btn { justify-content: flex-end; }
 }
 .inspector-sub { font-size: 12px; color: var(--dim); margin-top: 3px; font-variant-numeric: tabular-nums; }
 .inspector-copyright { font-size: 11px; color: var(--faint); margin-top: 4px; }
+.inspector-usage { margin-top: 4px; font-size: 12px; color: var(--faint); }
 
 .install-card {
   background: var(--surface-dim);
