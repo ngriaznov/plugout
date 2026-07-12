@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.6
 
 - New Used column shows, per plugin, how many REAPER and Ableton projects
   reference it and when it was last used, sortable to find safe delete
