@@ -218,11 +218,17 @@ pub async fn index_search(
             .into_iter()
             .map(|d| {
                 let keywords = crate::keywords::enrich(&d.name, &d.vendor);
+                let subcats = if d.id.to_ascii_lowercase().ends_with(".vst3") {
+                    crate::vst3meta::subcategory_words(std::path::Path::new(&d.id)).join(" ")
+                } else {
+                    String::new()
+                };
                 let text = [
                     d.name.as_str(),
                     d.vendor.as_str(),
                     d.category.as_str(),
                     keywords.as_str(),
+                    subcats.as_str(),
                 ]
                 .iter()
                 .filter(|s| !s.is_empty())
