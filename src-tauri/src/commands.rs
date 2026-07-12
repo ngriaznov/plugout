@@ -274,6 +274,58 @@ pub fn save_export(app: AppHandle, files: Vec<ExportFile>) -> Result<String, Str
     Ok(dir.to_string_lossy().into_owned())
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageHit {
+    pub name: String,
+    pub vendor: String,
+    pub project: String,
+    pub mtime_ms: f64,
+}
+
+/// Scan DAW project files for plugin references. IO-bound: runs on the
+/// blocking pool. Unreadable files are skipped; all failure modes degrade to
+/// an empty result.
+#[tauri::command]
+pub async fn scan_usage() -> Result<Vec<UsageHit>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let mut hits = Vec::new();
+        for path in crate::usage::find_projects(&crate::usage::RealFinder) {
+            let Ok(meta) = std::fs::metadata(&path) else {
+                continue;
+            };
+            if meta.len() > 64 * 1024 * 1024 {
+                continue;
+            }
+            let mtime_ms = meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map_or(0.0, |d| d.as_millis() as f64);
+            let lower = path.to_string_lossy().to_lowercase();
+            let refs = if lower.ends_with(".als") {
+                std::fs::read(&path)
+                    .map(|b| crate::usage::parse_als(&b))
+                    .unwrap_or_default()
+            } else {
+                std::fs::read_to_string(&path)
+                    .map(|t| crate::usage::parse_rpp(&t))
+                    .unwrap_or_default()
+            };
+            let project = path.to_string_lossy().into_owned();
+            hits.extend(refs.into_iter().map(|r| UsageHit {
+                name: r.name,
+                vendor: r.vendor,
+                project: project.clone(),
+                mtime_ms,
+            }));
+        }
+        hits
+    })
+    .await
+    .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

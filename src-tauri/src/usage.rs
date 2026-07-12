@@ -3,11 +3,6 @@
 //! behind [`ProjectFinder`] (walk fallback when mdfind fails), so parsing is
 //! testable without the real filesystem. Per-file failures are skipped — a
 //! corrupt project must never abort the batch.
-//!
-//! Not yet wired into [`crate::commands`] — that's Task 2. Until then this
-//! module has no caller outside its own tests, hence the blanket dead-code
-//! allow below; drop it once a command consumes these.
-#![allow(dead_code)]
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]

@@ -139,3 +139,5 @@ export const mockSemanticSearch = async (): Promise<{ id: string; score: number 
   ALL.slice(0, 6).map((b, i) => ({ id: b.id, score: 0.5 - i * 0.03 }));
 
 export const mockSaveExport = async (): Promise<string> => "/tmp";
+
+export const mockScanUsage = async (): Promise<never[]> => [];

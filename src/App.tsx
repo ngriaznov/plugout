@@ -13,7 +13,9 @@ import {
   semanticSearch,
   saveExport,
   revealInFinder,
+  scanUsage,
   type SearchHit,
+  type UsageHit,
 } from "./api";
 import { exportCsv, exportJson } from "./export";
 import { clearDetailsCache } from "./detailsCache";
@@ -43,6 +45,9 @@ export default function App() {
   const [themePref, setThemePref] = useState<ThemePref>(getPref);
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: "name", dir: 1 });
   const [update, setUpdate] = useState<UpdateState>({ phase: "idle" });
+  // Consumed by Task 3's memo; scanned here so it's ready by the time that lands.
+  const [usageHits, setUsageHits] = useState<UsageHit[]>([]);
+  void usageHits;
   const toastTimer = useRef<number | null>(null);
   const exportToastTimer = useRef<number | null>(null);
 
@@ -147,6 +152,10 @@ export default function App() {
       category: b.category ? CATEGORY_LABELS[b.category] : "",
     }));
     indexSearch(docs).catch((e) => console.warn("semantic index failed", e));
+    scanUsage().then(setUsageHits, (e) => {
+      console.warn("usage scan failed", e);
+      setUsageHits([]);
+    });
     // Re-index only when a scan completes, not on receipt enrichment churn.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading]);

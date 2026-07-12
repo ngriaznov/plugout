@@ -11,6 +11,7 @@ import {
   mockIndexSearch,
   mockSemanticSearch,
   mockSaveExport,
+  mockScanUsage,
 } from "./api.mock";
 
 // Outside a Tauri window (plain `vite` in a browser) fall back to the mock
@@ -77,3 +78,12 @@ export interface ExportFile {
 }
 export const saveExport = (files: ExportFile[]) =>
   isTauri ? invoke<string>("save_export", { files }) : mockSaveExport();
+
+// DAW project usage (plugins referenced by REAPER/Ableton projects on disk)
+export interface UsageHit {
+  name: string;
+  vendor: string;
+  project: string;
+  mtimeMs: number;
+}
+export const scanUsage = () => (isTauri ? invoke<UsageHit[]>("scan_usage") : mockScanUsage());

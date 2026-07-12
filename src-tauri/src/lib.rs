@@ -49,6 +49,7 @@ pub fn run() {
             commands::save_export,
             commands::index_search,
             commands::semantic_search,
+            commands::scan_usage,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
