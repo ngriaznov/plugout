@@ -2780,6 +2780,7 @@ dependencies = [
 name = "plugout"
 version = "0.2.5"
 dependencies = [
+ "flate2",
  "plist",
  "serde",
  "serde_json",
