@@ -10,7 +10,8 @@
   Logic project data isn't a documented format, so matches there are
   best-effort name lookups rather than an exact reference count.
 - New Settings → Scan locations: add extra folders to scan for plugins via a
-  native folder picker; a rescan runs automatically when the list changes.
+  native folder picker; closing Settings rescans automatically if the list
+  changed.
 - Full keyboard navigation: `/` or Cmd+F jumps to search, arrow keys move
   between rows (Home/End to jump to the first/last), Space selects a row,
   Enter opens its inspector, and dialogs trap focus and hand it back to
