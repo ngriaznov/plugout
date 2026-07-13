@@ -313,6 +313,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="titlebar" data-tauri-drag-region />
       <Sidebar
         bundles={bundles}
         pluginCount={allPluginCount}

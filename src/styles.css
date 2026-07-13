@@ -73,10 +73,18 @@ input[type="checkbox"] {
 
 /* ---------- Sidebar (sits directly on the paper background) ---------- */
 .sidebar {
-  padding: 20px 14px 14px;
+  /* extra top padding clears the overlay titlebar's traffic-light buttons */
+  padding: 34px 14px 14px;
   display: flex; flex-direction: column; gap: 4px;
   overflow-y: auto;
 }
+/* Transparent drag strip over the overlay title bar area (app color shows
+   through it). Above content, below the modal overlay (z-index 10). */
+.titlebar {
+  position: fixed; top: 0; left: 0; right: 0; height: 28px;
+  z-index: 5;
+}
+[data-tauri-drag-region] { -webkit-user-select: none; user-select: none; }
 .brand {
   font-size: 24px; font-weight: 800; letter-spacing: -1px;
   padding: 0 8px 16px;
@@ -137,7 +145,7 @@ input[type="checkbox"] {
 }
 
 /* ---------- Main ---------- */
-.main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; padding: 16px 16px 0 0; }
+.main { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; padding: 28px 16px 0 0; }
 .toolbar {
   display: flex; align-items: center; gap: 12px;
   padding: 2px 4px 12px;

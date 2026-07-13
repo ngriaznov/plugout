@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- The window now uses a seamless overlay title bar: the app's background fills
+  the whole window, title bar included, so it always matches the current
+  light/dark theme instead of showing macOS's default title bar. The top of
+  the window stays draggable.
+
 ## 0.2.9
 
 - Internal: migrated the Rust backend to the 2024 edition and applied
