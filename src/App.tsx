@@ -52,6 +52,7 @@ export default function App() {
   const [usageHits, setUsageHits] = useState<UsageHit[]>([]);
   const toastTimer = useRef<number | null>(null);
   const exportToastTimer = useRef<number | null>(null);
+  const scannedDirs = useRef<string[]>(getSettings().extraScanDirs);
 
   // Quiet update check once the launch dust settles; failures stay silent —
   // an unreachable update endpoint should never bother the user.
@@ -111,7 +112,9 @@ export default function App() {
     setInspectedKey(null);
     setLoading(true);
     setEnriching(true);
-    startScan();
+    const dirs = getSettings().extraScanDirs;
+    scannedDirs.current = dirs;
+    startScan(dirs);
   }
 
   useEffect(() => {
@@ -417,7 +420,11 @@ export default function App() {
           <SettingsModal
             settings={settings}
             onChange={changeSettings}
-            onClose={() => setSettingsOpen(false)}
+            onClose={() => {
+              setSettingsOpen(false);
+              const dirs = getSettings().extraScanDirs;
+              if (JSON.stringify(dirs) !== JSON.stringify(scannedDirs.current)) rescan();
+            }}
           />
         )}
 

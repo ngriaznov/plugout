@@ -485,6 +485,22 @@ code {
 .setting-title { display: block; font-weight: 600; }
 .setting-sub { display: block; font-size: 11.5px; color: var(--dim); margin-top: 2px; max-width: 380px; }
 
+.settings-section { border-top: 1px solid var(--line-soft); margin-top: 14px; padding-top: 14px; }
+.settings-section h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; }
+.settings-section .setting-sub { margin-bottom: 10px; }
+.scan-dirs { list-style: none; padding: 0; margin: 0 0 10px; display: flex; flex-direction: column; gap: 4px; }
+.scan-dirs li { display: flex; align-items: center; gap: 8px; }
+.scan-dirs code {
+  flex: 1; font-size: 12px; padding: 5px 8px; border-radius: 8px;
+  background: var(--surface-dim); overflow-wrap: anywhere;
+}
+.scan-dir-add { display: flex; gap: 8px; }
+.scan-dir-add input {
+  flex: 1; border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 10px; font-size: 12.5px; background: var(--surface);
+}
+.scan-dir-add input:focus { border-color: var(--text); }
+
 .warn { color: var(--warn); font-size: 12px; }
 .modal-actions {
   display: flex; justify-content: flex-end; align-items: center;
