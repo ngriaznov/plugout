@@ -27,6 +27,7 @@ mod commands;
 mod error;
 mod keywords;
 mod model;
+mod receipt_cache;
 mod receipts;
 mod remover;
 mod reversal;

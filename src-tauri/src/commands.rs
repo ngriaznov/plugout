@@ -22,6 +22,10 @@ const RECEIPT_WORKERS: usize = 8;
 /// re-renders a couple dozen times during enrichment instead of once per plugin.
 const RECEIPT_BATCH: usize = 20;
 
+/// A pkgutil result collected off the worker pool for caching: bundle id, its
+/// mtime at lookup time, and the resolved (or absent) owning package.
+type ResolvedReceipt = (String, u64, Option<String>);
+
 /// Kick off a scan. Returns immediately; the work runs off the main thread so the
 /// window never freezes. Emits:
 ///   - `scan:batch`  — a `Vec<PluginBundle>` per plugin folder as it's scanned,
@@ -52,20 +56,61 @@ pub fn start_scan(app: AppHandle) {
     });
 }
 
-/// Resolve each bundle's installer package in parallel (plugins and apps
-/// alike), emitting `receipt:update` events carrying batches of results so the
-/// UI re-renders a couple dozen times rather than hundreds. Bounded to
-/// `RECEIPT_WORKERS` concurrent `pkgutil` spawns.
+fn cache_path(app: &AppHandle) -> Option<std::path::PathBuf> {
+    use tauri::Manager;
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|d| d.join("receipt-cache.json"))
+}
+
+/// Resolve each bundle's installer package, serving unchanged bundles from the
+/// on-disk cache and running only misses through the pkgutil worker pool.
+/// Emits `receipt:update` events carrying batches of results (cache hits
+/// first, then pool results as they trail in) so the UI re-renders a couple
+/// dozen times rather than hundreds. Bounded to `RECEIPT_WORKERS` concurrent
+/// `pkgutil` spawns.
 fn enrich_receipts(app: &AppHandle, ids: Vec<String>) {
-    let queue = Arc::new(Mutex::new(ids));
+    let path = cache_path(app);
+    let mut cache = path
+        .as_deref()
+        .map(crate::receipt_cache::ReceiptCache::load)
+        .unwrap_or_default();
+
+    // Partition: cache hits emit immediately, misses go to the pool.
+    let mut hits: Vec<ReceiptUpdate> = Vec::new();
+    let mut misses: Vec<(String, u64)> = Vec::new();
+    for id in ids {
+        let Some(mtime) = crate::receipt_cache::bundle_mtime_ms(&id) else {
+            continue; // vanished between scan and enrichment
+        };
+        match cache.lookup(&id, mtime) {
+            Some(package_id) => hits.push(ReceiptUpdate { id, package_id }),
+            None => misses.push((id, mtime)),
+        }
+    }
+    if !hits.is_empty() {
+        let _ = app.emit("receipt:update", &hits);
+    }
+
+    // Worker pool over misses; results collected so they can be cached.
+    let queue = Arc::new(Mutex::new(misses));
+    let resolved: Arc<Mutex<Vec<ResolvedReceipt>>> = Arc::new(Mutex::new(Vec::new()));
     let mut handles = Vec::new();
     for _ in 0..RECEIPT_WORKERS {
         let app = app.clone();
         let queue = Arc::clone(&queue);
+        let resolved = Arc::clone(&resolved);
         handles.push(std::thread::spawn(move || {
             let mut buf: Vec<ReceiptUpdate> = Vec::new();
-            while let Some(id) = { queue.lock().unwrap_or_else(|e| e.into_inner()).pop() } {
+            while let Some((id, mtime)) = { queue.lock().unwrap_or_else(|e| e.into_inner()).pop() }
+            {
                 let package_id = receipts::owner_of(&id, &RealPkgUtil);
+                resolved.lock().unwrap_or_else(|e| e.into_inner()).push((
+                    id.clone(),
+                    mtime,
+                    package_id.clone(),
+                ));
                 buf.push(ReceiptUpdate { id, package_id });
                 if buf.len() >= RECEIPT_BATCH {
                     let _ = app.emit("receipt:update", &buf);
@@ -79,6 +124,18 @@ fn enrich_receipts(app: &AppHandle, ids: Vec<String>) {
     }
     for h in handles {
         let _ = h.join();
+    }
+
+    let resolved = Arc::try_unwrap(resolved)
+        .map(|m| m.into_inner().unwrap_or_else(|e| e.into_inner()))
+        .unwrap_or_default();
+    if let Some(path) = path
+        && !resolved.is_empty()
+    {
+        for (id, mtime, package_id) in resolved {
+            cache.insert(id, mtime, package_id);
+        }
+        let _ = cache.save(&path); // failure is non-fatal by design
     }
 }
 
