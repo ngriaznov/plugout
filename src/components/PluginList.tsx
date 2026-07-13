@@ -110,6 +110,10 @@ export function PluginList(p: Props) {
   const effectiveActiveKey = allRows.some((pl) => pl.key === activeKey) ? activeKey : allRows[0]?.key;
 
   const onRowKeyDown = (e: React.KeyboardEvent, pl: Plugin, idx: number) => {
+    // Keydown bubbles up from the row's own interactive children (format
+    // chips, the select checkbox); let those handle Space/Enter natively
+    // instead of the row intercepting them.
+    if (e.target !== e.currentTarget) return;
     const move = (to: number) => {
       const t = allRows[Math.max(0, Math.min(allRows.length - 1, to))];
       if (t) {

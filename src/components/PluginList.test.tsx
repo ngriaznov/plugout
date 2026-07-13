@@ -248,6 +248,28 @@ describe("PluginList keyboard navigation", () => {
     expect(rowsAfter[0]).toHaveAttribute("tabindex", "0");
     expect(rowsAfter.every((r, i) => (i === 0 ? true : r.getAttribute("tabindex") === "-1"))).toBe(true);
   });
+
+  it("Space on a focused format chip toggles only that install, not the whole plugin", async () => {
+    const props = baseProps();
+    const plugins = mergePlugins([
+      mk({ id: "a", format: "AU", name: "Pigments" }),
+      mk({ id: "b", format: "VST3", name: "Pigments" }),
+    ]);
+    render(<PluginList {...props} plugins={plugins} />);
+    screen.getByRole("button", { name: "AU" }).focus();
+    await userEvent.keyboard(" ");
+    expect(props.onToggleInstall).toHaveBeenCalledWith("a");
+    expect(props.onTogglePlugin).not.toHaveBeenCalled();
+  });
+
+  it("Enter on a focused format chip does not open the inspector", async () => {
+    const props = baseProps();
+    const plugins = mergePlugins([mk({ id: "a", format: "AU", name: "Pigments" })]);
+    render(<PluginList {...props} plugins={plugins} />);
+    screen.getByRole("button", { name: "AU" }).focus();
+    await userEvent.keyboard("{Enter}");
+    expect(props.onRowClick).not.toHaveBeenCalled();
+  });
 });
 
 describe("related results", () => {
