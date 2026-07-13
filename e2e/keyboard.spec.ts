@@ -14,6 +14,18 @@ test("slash focuses search; arrows traverse rows; Space selects; Enter inspects"
   await expect(page.locator(".inspector")).toBeVisible();
 });
 
+test("slash does not punch through an open modal", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/plugins$/)).toBeVisible();
+  await page.getByRole("button", { name: /settings/i }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("/");
+  await expect(page.locator("#plugin-search")).not.toBeFocused();
+  const focusInDialog = await dialog.evaluate((el) => el.contains(document.activeElement));
+  expect(focusInDialog).toBe(true);
+});
+
 test("confirm modal traps focus", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/plugins$/)).toBeVisible();

@@ -124,7 +124,7 @@ export function Inspector({
           </div>
           {plugin.copyright && <div className="inspector-copyright">{plugin.copyright}</div>}
           {usage !== undefined && (
-            <div className="inspector-usage" title="From REAPER (.rpp) and Ableton (.als) project files found on this Mac">
+            <div className="inspector-usage" title="From REAPER (.rpp), Ableton (.als), Studio One (.song) and Logic Pro (.logicx) project files found on this Mac">
               {usage ? (
                 <>
                   Used in {usage.projects} project{usage.projects === 1 ? "" : "s"}

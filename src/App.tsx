@@ -96,6 +96,12 @@ export default function App() {
     setThemePref(pref);
   }
 
+  function closeSettings() {
+    setSettingsOpen(false);
+    const dirs = getSettings().extraScanDirs;
+    if (JSON.stringify(dirs) !== JSON.stringify(scannedDirs.current)) rescan();
+  }
+
   function changeSettings(patch: Partial<Settings>) {
     const next = setSettings(patch);
     setSettingsState(next);
@@ -150,7 +156,8 @@ export default function App() {
       t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
 
     const onKey = (e: KeyboardEvent) => {
-      if ((e.key === "/" && !isTyping(e.target)) || (e.key === "f" && e.metaKey)) {
+      const modalOpen = settingsOpen || confirming || exportChoice;
+      if (!modalOpen && ((e.key === "/" && !isTyping(e.target)) || (e.key === "f" && e.metaKey))) {
         e.preventDefault();
         document.getElementById("plugin-search")?.focus();
         return;
@@ -160,7 +167,7 @@ export default function App() {
       // so it dismisses before the confirm modal, which dismisses before
       // the export choice, which dismisses before the inspector panel
       // underneath.
-      if (settingsOpen) setSettingsOpen(false);
+      if (settingsOpen) closeSettings();
       else if (confirming) setConfirming(false);
       else if (exportChoice) setExportChoice(false);
       else setInspectedKey(null);
@@ -368,15 +375,7 @@ export default function App() {
         )}
 
         {settingsOpen && (
-          <SettingsModal
-            settings={settings}
-            onChange={changeSettings}
-            onClose={() => {
-              setSettingsOpen(false);
-              const dirs = getSettings().extraScanDirs;
-              if (JSON.stringify(dirs) !== JSON.stringify(scannedDirs.current)) rescan();
-            }}
-          />
+          <SettingsModal settings={settings} onChange={changeSettings} onClose={closeSettings} />
         )}
 
         {exportChoice && (

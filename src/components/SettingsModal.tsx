@@ -51,7 +51,7 @@ export function SettingsModal({ settings, onChange, onClose }: Props) {
           <span>
             <span className="setting-title">Scan DAW projects for plugin usage</span>
             <span className="setting-sub">
-              Finds REAPER and Ableton project files via Spotlight and reads them to
+              Finds REAPER, Ableton, Studio One and Logic Pro project files via Spotlight and reads them to
               show the Used column. May trigger macOS folder-access prompts.
             </span>
           </span>

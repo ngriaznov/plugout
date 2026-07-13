@@ -89,7 +89,7 @@ export interface ExportFile {
 export const saveExport = (files: ExportFile[]) =>
   isTauri ? invoke<string>("save_export", { files }) : mockSaveExport();
 
-// DAW project usage (plugins referenced by REAPER/Ableton projects on disk)
+// DAW project usage (plugins referenced by REAPER/Ableton/Studio One/Logic Pro projects on disk)
 export interface UsageHit {
   name: string;
   vendor: string;

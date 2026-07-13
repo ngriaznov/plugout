@@ -104,7 +104,7 @@ uses the macOS Trash API for user files and a single `with administrator privile
 shell call for the whole system-scope batch. Project usage comes from Spotlight-located
 .rpp/.als/.song/.logicx files, parsed for their plugin reference blocks — read-only,
 skipped silently when unreadable, and only run when the usage scan is enabled in
-Settings. Studio One's `.song` is a zip of XML and parses exactly; Logic's `.logicx`
+Settings. Studio One's `.song` is a zip of XML and parses the actual XML; Logic's `.logicx`
 has no documented project format, so plugout falls back to a best-effort search for
 known plugin names inside its ProjectData file rather than an exact reference count.
 

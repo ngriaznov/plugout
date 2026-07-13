@@ -26,3 +26,19 @@ test("settings: scan locations add/remove persist", async ({ page }) => {
   await dialog.getByRole("button", { name: /remove \/tmp\/my-plugins/i }).click();
   await expect(dialog.getByText("/tmp/my-plugins")).not.toBeVisible();
 });
+
+test("settings: escape-close rescans when scan locations changed", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText(/plugins$/)).toBeVisible();
+  await page.getByRole("button", { name: /settings/i }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Folder path").fill("/tmp/escape-rescan-plugins");
+  await dialog.getByRole("button", { name: /^add$/i }).click();
+  await expect(dialog.getByText("/tmp/escape-rescan-plugins")).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+
+  await expect(page.locator(".count").getByText(/scanning…/i)).toBeVisible();
+  await expect(page.getByText(/plugins$/)).toBeVisible();
+});

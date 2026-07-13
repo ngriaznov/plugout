@@ -200,7 +200,7 @@ export function PluginList(p: Props) {
               sort={p.sort}
               onSort={p.onSort}
               className="c-used-h"
-              title="Projects referencing this plugin (REAPER and Ableton files scanned)"
+              title="Projects referencing this plugin (REAPER, Ableton, Studio One and Logic Pro files scanned)"
             />
           )}
           <SortHeader label="Size" k="size" sort={p.sort} onSort={p.onSort} className="c-size" />
