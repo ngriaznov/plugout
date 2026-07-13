@@ -238,8 +238,10 @@ pub async fn plugin_details(id: String) -> PluginDetails {
     })
 }
 
-/// A bundle's id IS its path, so removal needs nothing but the ids.
-#[tauri::command]
+/// A bundle's id IS its path, so removal needs nothing but the ids. Sync
+/// commands run on the main thread; `(async)` moves the Trash calls and the
+/// blocking admin-prompt shell-out off it so the UI never freezes.
+#[tauri::command(async)]
 pub fn remove_items(ids: Vec<String>) -> Vec<RemovalResult> {
     let home = std::env::var("HOME").unwrap_or_default();
     remover::remove_paths(&ids, &home, &RealTrasher)
