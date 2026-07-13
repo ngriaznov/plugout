@@ -18,6 +18,15 @@ import {
 // backend so the frontend can be developed and tested without a Rust build.
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
+/** Structured backend error, serialized from Rust's CmdError. */
+export interface CmdError {
+  kind: "canceled" | "notFound" | "permissionDenied" | "io" | "internal";
+  detail?: string;
+}
+
+export const isCanceled = (e: unknown): boolean =>
+  typeof e === "object" && e !== null && (e as CmdError).kind === "canceled";
+
 // Commands
 export const startScan = (extraDirs: string[] = []) =>
   isTauri ? invoke<void>("start_scan", { extraDirs }) : mockStartScan();

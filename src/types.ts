@@ -1,7 +1,7 @@
 export type Format = "AU" | "VST3" | "VST2" | "CLAP" | "AAX" | "APP";
 export type Scope = "user" | "system";
 export type Category = "instrument" | "effect" | "midiEffect";
-export type RemovalStatus = "trashed" | "failed";
+export type RemovalStatus = "trashed" | "failed" | "canceled";
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   instrument: "Instrument",

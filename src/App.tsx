@@ -185,12 +185,16 @@ export default function App() {
     const res = await removeItems([...selected, ...extraPaths]);
     setBusy(false);
     setConfirming(false);
-    setResults(res);
+    const canceled = res.filter((r) => r.status === "canceled");
+    const acted = res.filter((r) => r.status !== "canceled");
+    // Whole batch canceled at the admin prompt: silent no-op, selection kept.
+    if (acted.length === 0 && canceled.length > 0) return;
+    setResults(acted);
     setExportedDir(null);
     if (exportToastTimer.current) clearTimeout(exportToastTimer.current);
     rescan();
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    const hasFailures = res.some((r) => r.status === "failed");
+    const hasFailures = acted.some((r) => r.status === "failed");
     toastTimer.current = window.setTimeout(() => setResults(null), hasFailures ? 10000 : 6000);
   }
 
