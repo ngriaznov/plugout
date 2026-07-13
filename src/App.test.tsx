@@ -4,9 +4,13 @@ import { render, screen, within, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ComponentType } from "react";
+import { __resetMock } from "./api.mock";
 
 afterEach(cleanup);
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  __resetMock();
+});
 
 // theme.ts reads window.matchMedia at module scope; jsdom doesn't implement
 // it. App must be imported dynamically, after the stub is in place, since a
@@ -48,7 +52,6 @@ function firstPluginRow(): HTMLElement {
 describe("App integration (mock backend)", () => {
   it("scans and renders plugin rows", async () => {
     render(<App />);
-    expect(await screen.findAllByRole("row")).not.toHaveLength(0);
     // Count line reads "N plugins" only once the scan settles (loading: false).
     expect(await screen.findByText(/plugins$/, undefined, LONG)).toBeInTheDocument();
     expect(screen.getAllByRole("row").length).toBeGreaterThan(1);
@@ -72,7 +75,7 @@ describe("App integration (mock backend)", () => {
     await screen.findByText(/plugins$/, undefined, LONG);
 
     await userEvent.click(within(firstPluginRow()).getByRole("checkbox"));
-    await userEvent.click(screen.getByRole("button", { name: "Export" }));
+    await userEvent.click(screen.getByRole("button", { name: /export/i }));
 
     expect(await screen.findByRole("dialog", { name: /export/i })).toBeInTheDocument();
   });

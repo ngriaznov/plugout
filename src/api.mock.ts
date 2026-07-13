@@ -141,3 +141,14 @@ export const mockSemanticSearch = async (): Promise<{ id: string; score: number 
 export const mockSaveExport = async (): Promise<string> => "/tmp";
 
 export const mockScanUsage = async (): Promise<never[]> => [];
+
+// Test-only: clears the module-scoped trashed/listener state between tests so
+// a removal in one test doesn't leak into the next. No-op for the browser dev
+// path, which never calls it.
+export const __resetMock = (): void => {
+  trashed.clear();
+  listeners.batch.length = 0;
+  listeners.done.length = 0;
+  listeners.receipt.length = 0;
+  listeners.enrich.length = 0;
+};
