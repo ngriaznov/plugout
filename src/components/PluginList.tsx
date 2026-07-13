@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Plugin } from "../types";
 import { FormatChip } from "./FormatBadge";
 import { prefetchDetails } from "../detailsCache";
@@ -102,7 +102,28 @@ export function PluginList(p: Props) {
   const shownKeys = new Set(p.plugins.map((pl) => pl.key));
   const relatedRows = (p.related ?? []).filter((pl) => !shownKeys.has(pl.key));
 
-  const renderRow = (pl: Plugin) => {
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const allRows = [...p.plugins, ...relatedRows];
+
+  const onRowKeyDown = (e: React.KeyboardEvent, pl: Plugin, idx: number) => {
+    const move = (to: number) => {
+      const t = allRows[Math.max(0, Math.min(allRows.length - 1, to))];
+      if (t) {
+        setActiveKey(t.key);
+        document.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(t.key)}"]`)?.focus();
+      }
+    };
+    switch (e.key) {
+      case "ArrowDown": e.preventDefault(); move(idx + 1); break;
+      case "ArrowUp": e.preventDefault(); move(idx - 1); break;
+      case "Home": e.preventDefault(); move(0); break;
+      case "End": e.preventDefault(); move(allRows.length - 1); break;
+      case " ": e.preventDefault(); p.onTogglePlugin(pl); break;
+      case "Enter": e.preventDefault(); p.onRowClick(pl); break;
+    }
+  };
+
+  const renderRow = (pl: Plugin, idx: number) => {
     const selCount = pl.installs.filter((b) => p.selected.has(b.id)).length;
     return (
       <tr
@@ -110,6 +131,11 @@ export function PluginList(p: Props) {
         className={pl.key === p.inspectedKey ? "sel" : ""}
         onClick={() => p.onRowClick(pl)}
         onMouseEnter={() => prefetchDetails(pl)}
+        tabIndex={pl.key === (activeKey ?? allRows[0]?.key) ? 0 : -1}
+        data-key={pl.key}
+        aria-selected={pl.installs.every((b) => p.selected.has(b.id))}
+        onFocus={() => setActiveKey(pl.key)}
+        onKeyDown={(e) => onRowKeyDown(e, pl, idx)}
       >
         <td className="c-check" onClick={(e) => e.stopPropagation()}>
           <TriCheckbox
@@ -174,7 +200,7 @@ export function PluginList(p: Props) {
       </thead>
       <tbody>
         {p.loading && p.plugins.length === 0 && <SkeletonRows showUsed={showUsed} />}
-        {p.plugins.map(renderRow)}
+        {p.plugins.map((pl, idx) => renderRow(pl, idx))}
         {relatedRows.length > 0 && (
           <>
             {/* Shaped like a data row (no colSpan): a spanning cell makes
@@ -189,7 +215,7 @@ export function PluginList(p: Props) {
               {showUsed && <td className="c-used" />}
               <td className="c-size" />
             </tr>
-            {relatedRows.map(renderRow)}
+            {relatedRows.map((pl, i) => renderRow(pl, p.plugins.length + i))}
           </>
         )}
         {!p.loading && p.plugins.length === 0 && relatedRows.length === 0 && (

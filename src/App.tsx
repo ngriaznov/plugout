@@ -146,7 +146,15 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const isTyping = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+
     const onKey = (e: KeyboardEvent) => {
+      if ((e.key === "/" && !isTyping(e.target)) || (e.key === "f" && e.metaKey)) {
+        e.preventDefault();
+        document.getElementById("plugin-search")?.focus();
+        return;
+      }
       if (e.key !== "Escape") return;
       // Closest-first: the settings dialog sits on top of everything else,
       // so it dismisses before the confirm modal, which dismisses before

@@ -26,14 +26,16 @@ export function Sidebar(p: Props) {
     <aside className="sidebar">
       <div className="brand">plug<span>out</span></div>
 
-      <div className="search-wrap">
+      <div className="search-wrap" role="search">
         <svg className="search-icon" viewBox="0 0 16 16" aria-hidden="true">
           <circle cx="7" cy="7" r="4.6" fill="none" stroke="currentColor" strokeWidth="1.5" />
           <line x1="10.4" y1="10.4" x2="13.6" y2="13.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
         </svg>
         <input
+          id="plugin-search"
           className="search"
           placeholder="Search plugins…"
+          aria-label="Search plugins"
           value={p.query}
           onChange={(e) => p.onQuery(e.target.value)}
         />

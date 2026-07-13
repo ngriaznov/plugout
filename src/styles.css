@@ -241,7 +241,7 @@ th[aria-sort] .th-btn { color: var(--text); }
 .sort-ind { font-size: 9px; width: 8px; }
 th.c-size .th-btn { justify-content: flex-end; }
 
-.table tbody tr { border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 100ms ease; }
+.table tbody tr { border-bottom: 1px solid var(--line-soft); cursor: pointer; transition: background 100ms ease; scroll-margin: 40px; }
 .table tbody tr:hover { background: var(--surface-dim); }
 .table tbody tr.sel { background: var(--accent-tint); }
 .table td { padding: 10px 16px; vertical-align: middle; }

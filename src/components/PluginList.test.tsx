@@ -212,6 +212,25 @@ describe("used column gating", () => {
   });
 });
 
+describe("PluginList keyboard navigation", () => {
+  it("arrow keys move the active row; Space selects; Enter inspects", async () => {
+    const props = baseProps();
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Pigments" }),
+      mk({ id: "b", name: "Serum" }),
+    ]);
+    render(<PluginList {...props} plugins={plugins} />);
+    const rows = screen.getAllByRole("row").filter((r) => r.hasAttribute("tabindex"));
+    rows[0].focus();
+    await userEvent.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(rows[1]);
+    await userEvent.keyboard(" ");
+    expect(props.onTogglePlugin).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard("{Enter}");
+    expect(props.onRowClick).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("related results", () => {
   it("renders a divider and related rows when related plugins are present", () => {
     const related = mergePlugins([mk({ id: "r1", name: "ValhallaVintageVerb", vendor: "Valhalla DSP" })]);
