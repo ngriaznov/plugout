@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { PluginBundle, RemovalPreview } from "../types";
 import { removalPreview } from "../api";
 import { formatBytes, mergePlugins } from "../util";
+import { useFocusTrap } from "../useFocusTrap";
 import { FormatBadge } from "./FormatBadge";
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function ConfirmModal({ bundles, allBundles, onCancel, onConfirm, busy }: Props) {
+  const dialogRef = useFocusTrap<HTMLDivElement>();
   const plugins = useMemo(() => mergePlugins(bundles), [bundles]);
   const total = bundles.reduce((n, b) => n + b.sizeBytes, 0);
   const hasSystem = bundles.some((b) => b.scope === "system");
@@ -41,7 +43,14 @@ export function ConfirmModal({ bundles, allBundles, onCancel, onConfirm, busy }:
 
   return (
     <div className="overlay" onClick={onCancel}>
-      <div className="modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        tabIndex={-1}
+        ref={dialogRef}
+        onClick={(e) => e.stopPropagation()}
+      >
         <h2>Move {plugins.length} item{plugins.length > 1 ? "s" : ""} to Trash?</h2>
         <p className="dim">
           Frees about {formatBytes(total + (includeSupport ? supportSize : 0))}. Everything goes

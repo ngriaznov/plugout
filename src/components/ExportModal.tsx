@@ -1,3 +1,5 @@
+import { useFocusTrap } from "../useFocusTrap";
+
 interface Props {
   count: number;
   selectedCount: number;
@@ -6,6 +8,7 @@ interface Props {
 }
 
 export function ExportModal({ count, selectedCount, onChoose, onCancel }: Props) {
+  const dialogRef = useFocusTrap<HTMLDivElement>();
   return (
     <div className="overlay" onClick={onCancel}>
       <div
@@ -13,6 +16,8 @@ export function ExportModal({ count, selectedCount, onChoose, onCancel }: Props)
         role="dialog"
         aria-modal="true"
         aria-label="Export inventory"
+        tabIndex={-1}
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
       >
         <h2>Export inventory</h2>

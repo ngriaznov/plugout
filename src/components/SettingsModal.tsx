@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Settings } from "../settings";
+import { useFocusTrap } from "../useFocusTrap";
 
 interface Props {
   settings: Settings;
@@ -11,6 +12,7 @@ interface Props {
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 export function SettingsModal({ settings, onChange, onClose }: Props) {
+  const dialogRef = useFocusTrap<HTMLDivElement>();
   const [manualDir, setManualDir] = useState("");
 
   const addDir = (dir: string) => {
@@ -32,6 +34,8 @@ export function SettingsModal({ settings, onChange, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-label="Settings"
+        tabIndex={-1}
+        ref={dialogRef}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="inspector-head">
