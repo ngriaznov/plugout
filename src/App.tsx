@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Format, Scope, PluginBundle, RemovalResult } from "./types";
+import type { Format, Plugin, Scope, PluginBundle, RemovalResult } from "./types";
 import { CATEGORY_LABELS } from "./types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -29,6 +29,7 @@ import { Inspector } from "./components/Inspector";
 import { ActionBar } from "./components/ActionBar";
 import { ConfirmModal } from "./components/ConfirmModal";
 import { SettingsModal } from "./components/SettingsModal";
+import { ExportModal } from "./components/ExportModal";
 import { UpdatePill } from "./components/UpdatePill";
 
 export default function App() {
@@ -42,6 +43,7 @@ export default function App() {
   const [confirming, setConfirming] = useState(false);
   const [settings, setSettingsState] = useState<Settings>(getSettings);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [exportChoice, setExportChoice] = useState(false);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<RemovalResult[] | null>(null);
   const [exportedDir, setExportedDir] = useState<string | null>(null);
@@ -148,14 +150,16 @@ export default function App() {
       if (e.key !== "Escape") return;
       // Closest-first: the settings dialog sits on top of everything else,
       // so it dismisses before the confirm modal, which dismisses before
-      // the inspector panel underneath.
+      // the export choice, which dismisses before the inspector panel
+      // underneath.
       if (settingsOpen) setSettingsOpen(false);
       else if (confirming) setConfirming(false);
+      else if (exportChoice) setExportChoice(false);
       else setInspectedKey(null);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [settingsOpen, confirming]);
+  }, [settingsOpen, confirming, exportChoice]);
 
   // Feed the semantic-search index once a scan settles. Failures are logged
   // and swallowed — search degrades to substring-only.
@@ -200,13 +204,18 @@ export default function App() {
     toastTimer.current = window.setTimeout(() => setResults(null), hasFailures ? 10000 : 6000);
   }
 
-  async function doExport() {
-    const all = sortPlugins(mergePlugins(bundles), "name", 1);
+  function requestExport() {
+    if (selected.size > 0) setExportChoice(true);
+    else void doExport(plugins);
+  }
+
+  async function doExport(list: Plugin[]) {
+    setExportChoice(false);
     const stamp = fmtDate(Date.now());
     try {
       const dir = await saveExport([
-        { name: `plugout-inventory-${stamp}.csv`, contents: exportCsv(all) },
-        { name: `plugout-inventory-${stamp}.json`, contents: exportJson(all) },
+        { name: `plugout-inventory-${stamp}.csv`, contents: exportCsv(list) },
+        { name: `plugout-inventory-${stamp}.json`, contents: exportJson(list) },
       ]);
       setExportedDir(dir);
     } catch {
@@ -292,7 +301,7 @@ export default function App() {
           <button className="ghost small" onClick={() => setSettingsOpen(true)}>
             Settings
           </button>
-          <button className="ghost small" onClick={doExport} disabled={loading || bundles.length === 0}>
+          <button className="ghost small" onClick={requestExport} disabled={loading || bundles.length === 0}>
             Export
           </button>
           <button className="ghost small" onClick={rescan} disabled={loading}>
@@ -359,6 +368,19 @@ export default function App() {
               const dirs = getSettings().extraScanDirs;
               if (JSON.stringify(dirs) !== JSON.stringify(scannedDirs.current)) rescan();
             }}
+          />
+        )}
+
+        {exportChoice && (
+          <ExportModal
+            count={plugins.length}
+            selectedCount={selected.size}
+            onChoose={(w) =>
+              doExport(
+                w === "selected" ? sortPlugins(mergePlugins(selectedBundles), sort.key, sort.dir, usage) : plugins,
+              )
+            }
+            onCancel={() => setExportChoice(false)}
           />
         )}
 
