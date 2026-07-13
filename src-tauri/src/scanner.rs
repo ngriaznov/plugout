@@ -82,44 +82,93 @@ pub fn dir_size(path: &Path) -> u64 {
     entries.flatten().map(|e| dir_size(&e.path())).sum()
 }
 
+/// Build a `PluginBundle` for a bundle directory: parses `Info.plist`, falls
+/// back to the filename when it carries no name, and sizes the payload.
+/// Shared by every scan path (standard roots and user-chosen extra folders).
+fn read_bundle(path: &Path, format: Format, scope: Scope) -> PluginBundle {
+    let meta = parse_info_plist(&path.join("Contents/Info.plist"));
+    let file_stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+    let name = if meta.name.is_empty() {
+        file_stem
+    } else {
+        meta.name
+    };
+    let path_str = path.to_string_lossy().to_string();
+    PluginBundle {
+        id: path_str.clone(),
+        name,
+        vendor: meta.vendor,
+        version: meta.version,
+        format,
+        bundle_id: meta.bundle_id,
+        path: path_str,
+        size_bytes: dir_size(path),
+        scope,
+        package_id: None,
+        category: meta.category,
+        copyright: meta.copyright,
+    }
+}
+
+/// User-vs-system split for a path: anything under `$HOME` is `Scope::User`,
+/// everything else (`/Library/...`) is `Scope::System`.
+fn scope_for_path(path: &Path) -> Scope {
+    let home = std::env::var("HOME").unwrap_or_default();
+    if path.to_string_lossy().starts_with(&format!("{home}/")) {
+        Scope::User
+    } else {
+        Scope::System
+    }
+}
+
 pub fn scan_dir(dir: &Path, format: Format, scope: Scope) -> Vec<PluginBundle> {
     let want = format.extension();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
-    let mut out = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some(want) {
-            continue;
-        }
-        let meta = parse_info_plist(&path.join("Contents/Info.plist"));
-        let file_stem = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-            .to_string();
-        let name = if meta.name.is_empty() {
-            file_stem
-        } else {
-            meta.name
-        };
-        let path_str = path.to_string_lossy().to_string();
-        out.push(PluginBundle {
-            id: path_str.clone(),
-            name,
-            vendor: meta.vendor,
-            version: meta.version,
-            format,
-            bundle_id: meta.bundle_id,
-            path: path_str,
-            size_bytes: dir_size(&path),
-            scope,
-            package_id: None,
-            category: meta.category,
-            copyright: meta.copyright,
-        });
+    entries
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().and_then(|e| e.to_str()) == Some(want))
+        .map(|p| read_bundle(&p, format, scope))
+        .collect()
+}
+
+/// Map a bundle filename extension to its plugin format.
+fn format_for_ext(path: &Path) -> Option<Format> {
+    match path.extension()?.to_str()?.to_lowercase().as_str() {
+        "component" => Some(Format::Au),
+        "vst" => Some(Format::Vst2),
+        "vst3" => Some(Format::Vst3),
+        "clap" => Some(Format::Clap),
+        "aaxplugin" => Some(Format::Aax),
+        _ => None,
     }
+}
+
+/// Scan a user-chosen folder: bundles at the top level plus one vendor-folder
+/// level, format detected by extension (unlike the standard roots, a custom
+/// folder can mix formats). Scope derives from the path like everywhere else.
+pub fn scan_extra_dir(dir: &Path) -> Vec<PluginBundle> {
+    fn bundles_at(dir: &Path, out: &mut Vec<PluginBundle>, descend: bool) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for e in entries.flatten() {
+            let p = e.path();
+            match format_for_ext(&p) {
+                Some(format) if p.is_dir() => out.push(read_bundle(&p, format, scope_for_path(&p))),
+                None if p.is_dir() && descend => bundles_at(&p, out, false),
+                _ => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    bundles_at(dir, &mut out, true);
     out
 }
 
@@ -160,8 +209,6 @@ pub fn scan_applications(roots: &[PathBuf], plugins: &[PluginBundle]) -> Vec<Plu
         .iter()
         .map(|p| (p.vendor.to_lowercase(), p))
         .collect();
-    let home = std::env::var("HOME").unwrap_or_default();
-
     let mut out = Vec::new();
     for root in roots {
         for (path, parent_dir) in apps_under(root) {
@@ -200,11 +247,7 @@ pub fn scan_applications(roots: &[PathBuf], plugins: &[PluginBundle]) -> Vec<Plu
                 bundle_id: meta.bundle_id,
                 path: path_str.clone(),
                 size_bytes: dir_size(&path),
-                scope: if path_str.starts_with(&format!("{home}/")) {
-                    Scope::User
-                } else {
-                    Scope::System
-                },
+                scope: scope_for_path(&path),
                 package_id: None, // receipts trail in via receipt:update
                 category: None,   // apps aren't classified as instrument/effect
                 copyright: meta.copyright,
@@ -391,6 +434,31 @@ mod tests {
     fn scan_dir_missing_directory_is_empty_not_error() {
         let found = scan_dir(Path::new("/definitely/not/here"), Format::Au, Scope::System);
         assert!(found.is_empty());
+    }
+
+    #[test]
+    fn extra_dir_detects_formats_by_extension_two_levels() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        // top level: one VST3
+        make_bundle(root, "Serum.vst3", "");
+        // vendor subfolder: one CLAP
+        make_bundle(root, "Xfer/Serum.clap", "");
+        // two levels deep: ignored
+        make_bundle(root, "A/B/Deep.vst3", "");
+        // unknown extension: ignored
+        std::fs::write(root.join("readme.txt"), b"nope").unwrap();
+
+        let found = scan_extra_dir(root);
+        let formats: Vec<_> = found.iter().map(|b| b.format).collect();
+        assert!(formats.contains(&Format::Vst3));
+        assert!(formats.contains(&Format::Clap));
+        assert_eq!(found.len(), 2);
+    }
+
+    #[test]
+    fn extra_dir_missing_or_file_yields_empty() {
+        assert!(scan_extra_dir(Path::new("/nonexistent/xyz")).is_empty());
     }
 
     fn make_app(root: &Path, rel: &str, plist_body: &str) {

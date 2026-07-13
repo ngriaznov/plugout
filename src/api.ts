@@ -19,7 +19,8 @@ import {
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 // Commands
-export const startScan = () => (isTauri ? invoke<void>("start_scan") : mockStartScan());
+export const startScan = (extraDirs: string[] = []) =>
+  isTauri ? invoke<void>("start_scan", { extraDirs }) : mockStartScan();
 export const pluginDetails = (id: string) =>
   isTauri ? invoke<PluginDetails>("plugin_details", { id }) : mockPluginDetails(id);
 export const removeItems = (ids: string[]) =>

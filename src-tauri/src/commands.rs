@@ -26,31 +26,50 @@ const RECEIPT_BATCH: usize = 20;
 /// mtime at lookup time, and the resolved (or absent) owning package.
 type ResolvedReceipt = (String, u64, Option<String>);
 
-/// Kick off a scan. Returns immediately; the work runs off the main thread so the
-/// window never freezes. Emits:
-///   - `scan:batch`  — a `Vec<PluginBundle>` per plugin folder as it's scanned,
-///     then one batch of companion apps found by walking /Applications
-///   - `scan:done`   — the total count, once folders and apps are in
+/// Kick off a scan of the standard plugin folders, any user-chosen
+/// `extra_dirs`, and the Applications folders. Returns immediately; the work
+/// runs off the main thread so the window never freezes. A bundle found under
+/// more than one root (an extra dir overlapping a standard one, say) is kept
+/// only once, by id. Emits:
+///   - `scan:batch`  — a `Vec<PluginBundle>` per root as it's scanned, holding
+///     only the ids not already seen in an earlier batch
+///   - `scan:done`   — the deduped total, once every root is in
 ///   - `receipt:update` — `{ id, packageId }` per bundle, as installers resolve
 ///     in the background (each needs a `pkgutil` spawn, so this trails the scan)
 ///   - `enrich:done` — when the last receipt has resolved
 #[tauri::command]
-pub fn start_scan(app: AppHandle) {
+pub fn start_scan(app: AppHandle, extra_dirs: Vec<String>) {
     tauri::async_runtime::spawn_blocking(move || {
+        let mut seen = std::collections::HashSet::new();
+        let mut push_batch = |batch: Vec<PluginBundle>, plugins: &mut Vec<PluginBundle>| {
+            let fresh: Vec<_> = batch
+                .into_iter()
+                .filter(|b| seen.insert(b.id.clone()))
+                .collect();
+            if !fresh.is_empty() {
+                let _ = app.emit("scan:batch", &fresh);
+                plugins.extend(fresh);
+            }
+        };
+
         let mut plugins: Vec<PluginBundle> = Vec::new();
         for (dir, format, scope) in scanner::plugin_locations() {
-            let batch = scanner::scan_dir(&dir, format, scope);
-            let _ = app.emit("scan:batch", &batch);
-            plugins.extend(batch);
+            push_batch(scanner::scan_dir(&dir, format, scope), &mut plugins);
+        }
+        for dir in &extra_dirs {
+            push_batch(
+                scanner::scan_extra_dir(std::path::Path::new(dir)),
+                &mut plugins,
+            );
         }
         // Companion apps come from a filesystem walk, so they land right after
         // the plugin folders — receipt enrichment below fills in their
         // "Installed by" like any other bundle.
         let apps = scanner::scan_applications(&scanner::application_roots(), &plugins);
-        let _ = app.emit("scan:batch", &apps);
-        let _ = app.emit("scan:done", plugins.len() + apps.len());
+        push_batch(apps, &mut plugins);
+        let _ = app.emit("scan:done", plugins.len());
 
-        let ids = plugins.iter().chain(&apps).map(|b| b.id.clone()).collect();
+        let ids = plugins.iter().map(|b| b.id.clone()).collect();
         enrich_receipts(&app, ids);
         let _ = app.emit("enrich:done", ());
     });
