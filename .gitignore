@@ -12,6 +12,8 @@ node_modules
 dist
 dist-ssr
 *.local
+playwright-report/
+test-results/
 
 # Internal process docs (specs, plans) — never committed
 .superpowers/
