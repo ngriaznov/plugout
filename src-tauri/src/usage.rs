@@ -145,11 +145,24 @@ pub fn parse_als(bytes: &[u8]) -> Vec<PluginRef> {
     out
 }
 
-/// Attribute value of `key="..."` inside one element span.
+/// Attribute value of `key="..."` inside one element span. Requires a word
+/// boundary immediately before `key` (start-of-span counts) so `name="..."`
+/// doesn't false-match inside `filename="..."`, nor `uid=` inside `guid=`.
 fn attr<'a>(el: &'a str, key: &str) -> Option<&'a str> {
     let needle = format!("{key}=\"");
-    let i = el.find(&needle)?;
-    el[i + needle.len()..].split_once('"').map(|(v, _)| v)
+    let mut from = 0;
+    while let Some(rel) = el[from..].find(&needle) {
+        let i = from + rel;
+        let boundary = el[..i]
+            .chars()
+            .next_back()
+            .is_none_or(|c| !c.is_alphanumeric());
+        if boundary {
+            return el[i + needle.len()..].split_once('"').map(|(v, _)| v);
+        }
+        from = i + needle.len();
+    }
+    None
 }
 
 /// Studio One `.song`: a zip of XML documents. A plugin ref is any element
@@ -483,6 +496,28 @@ mod tests {
           <Attributes name="Serum" uid="a"/><Attributes name="Serum" uid="a"/>
         </Song>"#;
         assert_eq!(parse_song(&song_zip(xml)).len(), 1);
+    }
+
+    #[test]
+    fn song_filename_attr_is_not_mistaken_for_name() {
+        let xml = r#"<Song><Attributes filename="preset.fxp" uid="x"/></Song>"#;
+        assert!(parse_song(&song_zip(xml)).is_empty());
+    }
+
+    #[test]
+    fn song_real_name_extracted_despite_preceding_filename_attr() {
+        let xml = r#"<Song><Attributes filename="a.fxp" name="Serum" uid="u"/></Song>"#;
+        let refs = parse_song(&song_zip(xml));
+        assert!(refs.contains(&PluginRef {
+            name: "Serum".into(),
+            vendor: "".into()
+        }));
+    }
+
+    #[test]
+    fn song_guid_attr_does_not_count_as_uid() {
+        let xml = r#"<Song><Attributes name="X" guid="g"/></Song>"#;
+        assert!(parse_song(&song_zip(xml)).is_empty());
     }
 
     struct SpyFinder {
