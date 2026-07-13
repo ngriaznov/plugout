@@ -145,17 +145,79 @@ pub fn parse_als(bytes: &[u8]) -> Vec<PluginRef> {
     out
 }
 
+/// Attribute value of `key="..."` inside one element span.
+fn attr<'a>(el: &'a str, key: &str) -> Option<&'a str> {
+    let needle = format!("{key}=\"");
+    let i = el.find(&needle)?;
+    el[i + needle.len()..].split_once('"').map(|(v, _)| v)
+}
+
+/// Studio One `.song`: a zip of XML documents. A plugin ref is any element
+/// carrying `name="..."` plus a uid/deviceUID/manufacturer/vendor attribute —
+/// deliberately greedy; refs that match no installed plugin are inert
+/// downstream, missing a real device is the only failure that matters.
+pub fn parse_song(bytes: &[u8]) -> Vec<PluginRef> {
+    let Ok(mut archive) = zip::ZipArchive::new(std::io::Cursor::new(bytes)) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for i in 0..archive.len() {
+        let Ok(mut file) = archive.by_index(i) else {
+            continue;
+        };
+        if !file.name().to_lowercase().ends_with(".xml") {
+            continue;
+        }
+        let mut xml = String::new();
+        use std::io::Read;
+        if file.read_to_string(&mut xml).is_err() {
+            continue;
+        }
+        // Walk element spans: substrings between '<' and the next '>'.
+        let mut rest = xml.as_str();
+        while let Some(open) = rest.find('<') {
+            let Some(close) = rest[open..].find('>') else {
+                break;
+            };
+            let el = &rest[open + 1..open + close];
+            rest = &rest[open + close + 1..];
+            let Some(name) = attr(el, "name") else {
+                continue;
+            };
+            let vendor = attr(el, "manufacturer").or_else(|| attr(el, "vendor"));
+            let has_uid = attr(el, "uid").is_some() || attr(el, "deviceUID").is_some();
+            if name.is_empty() || (vendor.is_none() && !has_uid) {
+                continue;
+            }
+            let r = PluginRef {
+                name: name.trim().into(),
+                vendor: vendor.unwrap_or("").trim().into(),
+            };
+            if !out.contains(&r) {
+                out.push(r);
+            }
+        }
+    }
+    out
+}
+
 fn wanted(p: &std::path::Path) -> bool {
     let s = p.to_string_lossy();
     let lower = s.to_lowercase();
-    (lower.ends_with(".rpp") || lower.ends_with(".als"))
+    (lower.ends_with(".rpp")
+        || lower.ends_with(".als")
+        || lower.ends_with(".song")
+        || lower.ends_with(".logicx"))
         && !lower.ends_with(".rpp-bak")
         && !s.split('/').any(|seg| seg == "Backup")
 }
 
 pub fn find_projects(finder: &dyn ProjectFinder) -> Vec<PathBuf> {
     let mdfind = finder
-        .mdfind("kMDItemFSName == '*.rpp'c || kMDItemFSName == '*.als'c")
+        .mdfind(
+            "kMDItemFSName == '*.rpp'c || kMDItemFSName == '*.als'c || \
+             kMDItemFSName == '*.song'c || kMDItemFSName == '*.logicx'c",
+        )
         .unwrap_or_default();
     let all = if mdfind.is_empty() {
         finder.walk_fallback()
@@ -193,7 +255,11 @@ impl ProjectFinder for RealFinder {
             for e in entries.flatten() {
                 let p = e.path();
                 if p.is_dir() {
-                    walk(&p, depth - 1, out);
+                    if p.to_string_lossy().to_lowercase().ends_with(".logicx") {
+                        out.push(p);
+                    } else {
+                        walk(&p, depth - 1, out);
+                    }
                 } else {
                     out.push(p);
                 }
@@ -371,6 +437,52 @@ mod tests {
             refs.iter().any(|r| r.name == "Invigorate"),
             "expected to find the real plugin name past its Preset blob, got {refs:?}"
         );
+    }
+
+    fn song_zip(xml: &str) -> Vec<u8> {
+        use std::io::Write;
+        let mut z = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+        let opts = zip::write::SimpleFileOptions::default();
+        z.start_file("Song/song.xml", opts).unwrap();
+        z.write_all(xml.as_bytes()).unwrap();
+        z.start_file("Song/mediapool.xml", opts).unwrap();
+        z.write_all(b"<MediaPool></MediaPool>").unwrap();
+        z.finish().unwrap().into_inner()
+    }
+
+    #[test]
+    fn song_extracts_devices_with_uid_or_manufacturer() {
+        let xml = r#"<?xml version="1.0"?>
+          <Song>
+            <Attributes name="Pro-Q 3" uid="{ABC-123}" manufacturer="FabFilter"/>
+            <Attributes name="Serum" deviceUID="com.xfer.serum"/>
+            <Attributes name="Untitled Track"/>
+            <Marker name="Chorus" uid="not-a-plugin-but-harmless"/>
+          </Song>"#;
+        let refs = parse_song(&song_zip(xml));
+        assert!(refs.contains(&PluginRef {
+            name: "Pro-Q 3".into(),
+            vendor: "FabFilter".into()
+        }));
+        assert!(refs.contains(&PluginRef {
+            name: "Serum".into(),
+            vendor: "".into()
+        }));
+        // name without uid/vendor/manufacturer is NOT extracted
+        assert!(!refs.iter().any(|r| r.name == "Untitled Track"));
+    }
+
+    #[test]
+    fn song_not_a_zip_yields_empty() {
+        assert!(parse_song(b"definitely not a zip").is_empty());
+    }
+
+    #[test]
+    fn song_dedupes_repeated_devices() {
+        let xml = r#"<Song>
+          <Attributes name="Serum" uid="a"/><Attributes name="Serum" uid="a"/>
+        </Song>"#;
+        assert_eq!(parse_song(&song_zip(xml)).len(), 1);
     }
 
     struct SpyFinder {

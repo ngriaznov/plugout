@@ -365,7 +365,7 @@ pub async fn scan_usage() -> Result<Vec<UsageHit>, CmdError> {
             let Ok(meta) = std::fs::metadata(&path) else {
                 continue;
             };
-            if meta.len() > 64 * 1024 * 1024 {
+            if !meta.is_dir() && meta.len() > 64 * 1024 * 1024 {
                 continue;
             }
             let mtime_ms = meta
@@ -378,6 +378,12 @@ pub async fn scan_usage() -> Result<Vec<UsageHit>, CmdError> {
                 std::fs::read(&path)
                     .map(|b| crate::usage::parse_als(&b))
                     .unwrap_or_default()
+            } else if lower.ends_with(".song") {
+                std::fs::read(&path)
+                    .map(|b| crate::usage::parse_song(&b))
+                    .unwrap_or_default()
+            } else if lower.ends_with(".logicx") {
+                Vec::new() // Task 4 fills this in
             } else {
                 std::fs::read_to_string(&path)
                     .map(|t| crate::usage::parse_rpp(&t))
