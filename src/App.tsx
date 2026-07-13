@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Format, Scope, Plugin, PluginBundle, RemovalResult } from "./types";
+import type { Format, Scope, PluginBundle, RemovalResult } from "./types";
 import { CATEGORY_LABELS } from "./types";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -10,11 +10,9 @@ import {
   onReceiptUpdate,
   onEnrichDone,
   indexSearch,
-  semanticSearch,
   saveExport,
   revealInFinder,
   scanUsage,
-  type SearchHit,
   type UsageHit,
 } from "./api";
 import { exportCsv, exportJson } from "./export";
@@ -22,7 +20,9 @@ import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
 import { getSettings, setSettings, type Settings } from "./settings";
-import { fmtDate, gateHits, matchUsage, mergePlugins, sortPlugins, usageFor, type SortDir, type SortKey } from "./util";
+import { fmtDate, matchUsage, mergePlugins, sortPlugins, usageFor, type SortDir, type SortKey } from "./util";
+import { useSelection } from "./useSelection";
+import { useSemanticRelated } from "./useSemanticRelated";
 import { Sidebar } from "./components/Sidebar";
 import { PluginList } from "./components/PluginList";
 import { Inspector } from "./components/Inspector";
@@ -38,7 +38,6 @@ export default function App() {
   const [formatFilter, setFormat] = useState<Format | "ALL">("ALL");
   const [scopeFilter, setScope] = useState<Scope | "ALL">("ALL");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [inspectedKey, setInspectedKey] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [settings, setSettingsState] = useState<Settings>(getSettings);
@@ -108,7 +107,7 @@ export default function App() {
   function rescan() {
     clearDetailsCache();
     setBundles([]);
-    setSelected(new Set());
+    clear();
     setInspectedKey(null);
     setLoading(true);
     setEnriching(true);
@@ -228,57 +227,7 @@ export default function App() {
     [bundles, formatFilter, scopeFilter, query],
   );
 
-  const [relatedHits, setRelatedHits] = useState<SearchHit[]>([]);
-
-  // Semantic hits trail the substring filter: debounce the query, embed it in
-  // the backend, keep the sorted hit array. Backend failure ⇒ empty ⇒ the UI
-  // silently stays substring-only. Gating happens later, in the memo, since
-  // it depends on scope/query which can change independent of the fetch.
-  useEffect(() => {
-    const q = query.trim();
-    if (q.length < 3) {
-      setRelatedHits([]);
-      return;
-    }
-    let cancelled = false;
-    const t = window.setTimeout(() => {
-      semanticSearch(q).then(
-        (hits) => !cancelled && setRelatedHits(hits),
-        () => !cancelled && setRelatedHits([]),
-      );
-    }, 150);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [query]);
-
-  const related = useMemo(() => {
-    if (relatedHits.length === 0 || query.trim().length < 3) return [];
-    const ql = query.toLowerCase();
-    const inScope = (b: PluginBundle) =>
-      (formatFilter === "ALL" || b.format === formatFilter) &&
-      (scopeFilter === "ALL" || b.scope === scopeFilter);
-    const matchesText = (b: PluginBundle) => `${b.name} ${b.vendor}`.toLowerCase().includes(ql);
-    const byId = new Map(bundles.map((b) => [b.id, b]));
-    // Exclude substring/out-of-scope hits BEFORE gating, so the relative
-    // floor is computed against the best hit that actually reads as related.
-    const surviving = relatedHits.filter((h) => {
-      const b = byId.get(h.id);
-      return !!b && inScope(b) && !matchesText(b);
-    });
-    const gated = gateHits(surviving);
-    if (gated.length === 0) return [];
-    const semanticOnly = new Set(gated.map((h) => h.id));
-    const score = new Map(gated.map((h) => [h.id, h.score]));
-    // Merge semantic hits TOGETHER with the visible bundles so cross-format
-    // identity bridges (shared bundle id) see every install of a product; a
-    // product with any substring-matched install is already in the main list.
-    const union = bundles.filter((b) => semanticOnly.has(b.id) || (inScope(b) && matchesText(b)));
-    const merged = mergePlugins(union).filter((p) => p.installs.every((b) => semanticOnly.has(b.id)));
-    const best = (p: Plugin) => Math.max(...p.installs.map((b) => score.get(b.id) ?? 0));
-    return merged.sort((a, b) => best(b) - best(a));
-  }, [bundles, relatedHits, query, formatFilter, scopeFilter]);
+  const related = useSemanticRelated(bundles, query, formatFilter, scopeFilter);
 
   const usage = useMemo(() => matchUsage(mergePlugins(bundles), usageHits), [bundles, usageHits]);
 
@@ -290,32 +239,17 @@ export default function App() {
   const inspected =
     plugins.find((p) => p.key === inspectedKey) ?? related.find((p) => p.key === inspectedKey) ?? null;
 
-  const toggleInstall = (id: string) =>
-    setSelected((s) => {
-      const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
-
-  const togglePlugin = (p: Plugin) =>
-    setSelected((s) => {
-      const n = new Set(s);
-      const ids = p.installs.map((b) => b.id);
-      if (ids.every((id) => n.has(id))) ids.forEach((id) => n.delete(id));
-      else ids.forEach((id) => n.add(id));
-      return n;
-    });
-
-  const toggleAll = () =>
-    setSelected((s) =>
-      visible.every((b) => s.has(b.id))
-        ? new Set([...s].filter((id) => !visible.some((b) => b.id === id)))
-        : new Set([...s, ...visible.map((b) => b.id)]),
-    );
-
-  const selectedBundles = bundles.filter((b) => selected.has(b.id));
-  const selectedPluginCount = new Set(selectedBundles.map((b) => `${b.vendor} ${b.name}`)).size;
-  const reclaimable = selectedBundles.reduce((n, b) => n + b.sizeBytes, 0);
+  const {
+    selected,
+    setSelected,
+    toggleInstall,
+    togglePlugin,
+    toggleAll,
+    clear,
+    selectedBundles,
+    selectedPluginCount,
+    reclaimable,
+  } = useSelection(bundles, visible);
   const failed = results?.filter((r) => r.status === "failed") ?? [];
 
   return (
