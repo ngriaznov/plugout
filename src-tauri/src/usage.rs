@@ -486,19 +486,14 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "machine-local file: run explicitly with `cargo test real_als_smoke -- --ignored`"]
+    #[ignore = "machine-local: set PLUGOUT_SMOKE_ALS and run with -- --ignored"]
     fn real_als_smoke() {
-        let path = "/Users/nikitagriaznov/Documents/REAPER Media/FS3/Untitled Project/Untitled.als";
-        let bytes = std::fs::read(path).expect("real .als fixture must exist for this smoke test");
-        let refs = parse_als(&bytes);
-        assert!(
-            !refs.is_empty(),
-            "expected at least one plugin ref from the real project"
-        );
-        assert!(
-            refs.iter().any(|r| r.name == "Invigorate"),
-            "expected to find the real plugin name past its Preset blob, got {refs:?}"
-        );
+        let Ok(path) = std::env::var("PLUGOUT_SMOKE_ALS") else {
+            eprintln!("PLUGOUT_SMOKE_ALS not set; skipping");
+            return;
+        };
+        let bytes = std::fs::read(&path).expect("PLUGOUT_SMOKE_ALS must point at a real .als");
+        assert!(!parse_als(&bytes).is_empty());
     }
 
     fn song_zip(xml: &str) -> Vec<u8> {

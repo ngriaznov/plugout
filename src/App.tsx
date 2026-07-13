@@ -22,7 +22,7 @@ import { clearDetailsCache } from "./detailsCache";
 import { applyTheme, getPref, setPref, onSystemThemeChange, type ThemePref } from "./theme";
 import { checkForUpdate, downloadAndInstall, restartApp, type UpdateState } from "./updater";
 import { getSettings, setSettings, type Settings } from "./settings";
-import { gateHits, matchUsage, mergePlugins, sortPlugins, usageFor, type SortDir, type SortKey } from "./util";
+import { fmtDate, gateHits, matchUsage, mergePlugins, sortPlugins, usageFor, type SortDir, type SortKey } from "./util";
 import { Sidebar } from "./components/Sidebar";
 import { PluginList } from "./components/PluginList";
 import { Inspector } from "./components/Inspector";
@@ -203,7 +203,7 @@ export default function App() {
 
   async function doExport() {
     const all = sortPlugins(mergePlugins(bundles), "name", 1);
-    const stamp = new Date().toISOString().slice(0, 10);
+    const stamp = fmtDate(Date.now());
     try {
       const dir = await saveExport([
         { name: `plugout-inventory-${stamp}.csv`, contents: exportCsv(all) },

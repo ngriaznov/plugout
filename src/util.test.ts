@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBytes, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage, usageFor } from "./util";
+import { formatBytes, fmtDate, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage, usageFor } from "./util";
 import type { PluginBundle, Format, Scope } from "./types";
 
 describe("formatBytes", () => {
@@ -7,6 +7,14 @@ describe("formatBytes", () => {
   it("formats KB", () => expect(formatBytes(2048)).toBe("2.0 KB"));
   it("formats MB", () => expect(formatBytes(5 * 1024 * 1024)).toBe("5.0 MB"));
   it("formats GB", () => expect(formatBytes(3 * 1024 ** 3)).toBe("3.0 GB"));
+});
+
+describe("fmtDate", () => {
+  it("fmtDate renders local YYYY-MM-DD", () => {
+    // construct from local parts so the assertion is TZ-independent
+    const d = new Date(2026, 0, 5, 23, 30); // Jan 5, 23:30 local
+    expect(fmtDate(d.getTime())).toBe("2026-01-05");
+  });
 });
 
 function mk(over: Partial<PluginBundle> & { id: string }): PluginBundle {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { PluginBundle, RemovalPreview } from "../types";
 import { removalPreview } from "../api";
 import { formatBytes, mergePlugins } from "../util";
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export function ConfirmModal({ bundles, allBundles, onCancel, onConfirm, busy }: Props) {
-  const plugins = mergePlugins(bundles);
+  const plugins = useMemo(() => mergePlugins(bundles), [bundles]);
   const total = bundles.reduce((n, b) => n + b.sizeBytes, 0);
   const hasSystem = bundles.some((b) => b.scope === "system");
 

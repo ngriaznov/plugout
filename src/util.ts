@@ -1,6 +1,13 @@
 import type { Plugin, PluginBundle, Scope } from "./types";
 import { FORMATS } from "./types";
 
+/** Local-timezone YYYY-MM-DD (toISOString would shift dates near midnight). */
+export function fmtDate(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];

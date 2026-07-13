@@ -4,7 +4,7 @@ import { CATEGORY_LABELS } from "../types";
 import { revealInFinder } from "../api";
 import { getDetails } from "../detailsCache";
 import { FormatBadge } from "./FormatBadge";
-import { formatBytes, type Usage } from "../util";
+import { fmtDate, formatBytes, type Usage } from "../util";
 
 type DetailState = PluginDetails | "error" | undefined;
 
@@ -129,7 +129,7 @@ export function Inspector({
                 <>
                   Used in {usage.projects} project{usage.projects === 1 ? "" : "s"}
                   {usage.lastUsedMs > 0 && (
-                    <> · last {new Date(usage.lastUsedMs).toISOString().slice(0, 10)}</>
+                    <> · last {fmtDate(usage.lastUsedMs)}</>
                   )}{" "}
                   <button className="ghost small" onClick={() => revealInFinder(usage.lastProject)}>
                     Reveal
