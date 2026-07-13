@@ -229,6 +229,25 @@ describe("PluginList keyboard navigation", () => {
     await userEvent.keyboard("{Enter}");
     expect(props.onRowClick).toHaveBeenCalledTimes(1);
   });
+
+  it("falls back to the first row as tabbable when the active row is filtered out", () => {
+    const props = baseProps();
+    const plugins = mergePlugins([
+      mk({ id: "a", name: "Alpha" }),
+      mk({ id: "b", name: "Beta" }),
+      mk({ id: "c", name: "Gamma" }),
+    ]);
+    const { rerender } = render(<PluginList {...props} plugins={plugins} />);
+    const rows = screen.getAllByRole("row").filter((r) => r.hasAttribute("tabindex"));
+    rows[1].focus(); // Beta becomes the active row
+
+    const remaining = plugins.filter((pl) => pl.name !== "Beta");
+    rerender(<PluginList {...props} plugins={remaining} />);
+
+    const rowsAfter = screen.getAllByRole("row").filter((r) => r.hasAttribute("tabindex"));
+    expect(rowsAfter[0]).toHaveAttribute("tabindex", "0");
+    expect(rowsAfter.every((r, i) => (i === 0 ? true : r.getAttribute("tabindex") === "-1"))).toBe(true);
+  });
 });
 
 describe("related results", () => {

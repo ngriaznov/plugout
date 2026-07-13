@@ -104,6 +104,10 @@ export function PluginList(p: Props) {
 
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const allRows = [...p.plugins, ...relatedRows];
+  // A focused row can drop out of the list (search/filter change) while it's
+  // still the active key; fall back to the first row so the table stays
+  // reachable by keyboard instead of every row going tabIndex=-1.
+  const effectiveActiveKey = allRows.some((pl) => pl.key === activeKey) ? activeKey : allRows[0]?.key;
 
   const onRowKeyDown = (e: React.KeyboardEvent, pl: Plugin, idx: number) => {
     const move = (to: number) => {
@@ -131,7 +135,7 @@ export function PluginList(p: Props) {
         className={pl.key === p.inspectedKey ? "sel" : ""}
         onClick={() => p.onRowClick(pl)}
         onMouseEnter={() => prefetchDetails(pl)}
-        tabIndex={pl.key === (activeKey ?? allRows[0]?.key) ? 0 : -1}
+        tabIndex={pl.key === effectiveActiveKey ? 0 : -1}
         data-key={pl.key}
         aria-selected={pl.installs.every((b) => p.selected.has(b.id))}
         onFocus={() => setActiveKey(pl.key)}
