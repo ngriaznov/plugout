@@ -63,10 +63,6 @@ fn enrich_receipts(app: &AppHandle, ids: Vec<String>) {
         let queue = Arc::clone(&queue);
         handles.push(std::thread::spawn(move || {
             let mut buf: Vec<ReceiptUpdate> = Vec::new();
-            // The block scopes the lock guard so it drops before `owner_of`
-            // runs; otherwise the ~250ms pkgutil spawn would hold the mutex and
-            // serialize every worker. Edition 2024's `if let` temporary
-            // rescoping does not extend to `while let`, so the block stays.
             while let Some(id) = { queue.lock().unwrap().pop() } {
                 let package_id = receipts::owner_of(&id, &RealPkgUtil);
                 buf.push(ReceiptUpdate { id, package_id });

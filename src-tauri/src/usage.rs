@@ -47,7 +47,6 @@ pub fn parse_rpp(text: &str) -> Vec<PluginRef> {
         let Some(end) = rest[start + 1..].find('"') else {
             continue;
         };
-        // let-chain (stable since 1.88): dedupe in the same condition.
         if let Some(r) = split_ref(&rest[start + 1..start + 1 + end])
             && !out.contains(&r)
         {
