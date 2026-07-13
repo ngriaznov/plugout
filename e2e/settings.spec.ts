@@ -1,6 +1,22 @@
 import { expect, test } from "@playwright/test";
 
-test("settings: usage toggle and scan locations add/remove persist", async ({ page }) => {
+test("settings: usage toggle persists across reopen", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: /settings/i }).click();
+  const dialog = page.getByRole("dialog");
+  const usageToggle = dialog.getByRole("checkbox", { name: /scan daw projects/i });
+  await expect(usageToggle).not.toBeChecked();
+  await usageToggle.check();
+  await expect(usageToggle).toBeChecked();
+
+  await dialog.getByRole("button", { name: /close settings/i }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("button", { name: /settings/i }).click();
+  await expect(page.getByRole("dialog").getByRole("checkbox", { name: /scan daw projects/i })).toBeChecked();
+});
+
+test("settings: scan locations add/remove persist", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: /settings/i }).click();
   const dialog = page.getByRole("dialog");

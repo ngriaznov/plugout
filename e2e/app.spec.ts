@@ -12,12 +12,16 @@ test("search narrows and clears", async ({ page }) => {
   const search = page.getByLabel("Search plugins");
   await search.fill("zzzz-nothing");
   await expect(page.getByText(/no plugins match/i)).toBeVisible();
+
+  await search.fill("");
+  await expect(page.getByRole("row").nth(1)).toBeVisible();
+  await expect(page.getByText(/plugins$/)).toBeVisible();
 });
 
 test("selection shows the action bar; removal confirm can be canceled", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/plugins$/)).toBeVisible();
-  await page.getByRole("checkbox").nth(1).check();
+  await page.getByRole("checkbox", { name: /^select (?!all)/i }).first().check();
   await page.getByRole("button", { name: /remove/i }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -28,7 +32,7 @@ test("selection shows the action bar; removal confirm can be canceled", async ({
 test("removal flow completes with a toast", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/plugins$/)).toBeVisible();
-  await page.getByRole("checkbox").nth(1).check();
+  await page.getByRole("checkbox", { name: /^select (?!all)/i }).first().check();
   await page.getByRole("button", { name: /remove/i }).click();
   await page.getByRole("dialog").getByRole("button", { name: /trash/i }).click();
   await expect(page.getByText(/moved to Trash/)).toBeVisible();
@@ -43,6 +47,7 @@ test("export produces a toast", async ({ page }) => {
 
 test("theme toggle flips the root theme", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByText(/plugins$/)).toBeVisible();
   await page.getByRole("radio", { name: /dark/i }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", /dark/);
 });

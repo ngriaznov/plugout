@@ -17,7 +17,7 @@ test("slash focuses search; arrows traverse rows; Space selects; Enter inspects"
 test("confirm modal traps focus", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/plugins$/)).toBeVisible();
-  await page.getByRole("checkbox").nth(1).check();
+  await page.getByRole("checkbox", { name: /^select (?!all)/i }).first().check();
   await page.getByRole("button", { name: /remove/i }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
