@@ -88,6 +88,7 @@ pub struct PluginBundle {
 pub enum RemovalStatus {
     Trashed,
     Failed,
+    Canceled,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,6 +116,10 @@ mod tests {
         assert_eq!(serde_json::to_string(&Format::Au).unwrap(), "\"AU\"");
         assert_eq!(serde_json::to_string(&Format::Vst3).unwrap(), "\"VST3\"");
         assert_eq!(serde_json::to_string(&Scope::System).unwrap(), "\"system\"");
+        assert_eq!(
+            serde_json::to_string(&RemovalStatus::Canceled).unwrap(),
+            "\"canceled\""
+        );
     }
 
     #[test]

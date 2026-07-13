@@ -28,6 +28,7 @@ tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tern-engine = { path = "vendor/tern-engine", features = ["emb_int8"] }
 flate2 = "1"
+thiserror = "2"
 
 [dev-dependencies]
 tempfile = "3"

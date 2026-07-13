@@ -1,3 +1,4 @@
+use crate::error::CmdError;
 use crate::model::{PluginBundle, PluginDetails, RemovalResult};
 use crate::receipts::{self, PkgUtil, RealPkgUtil};
 use crate::remover::{self, RealTrasher};
@@ -63,7 +64,7 @@ fn enrich_receipts(app: &AppHandle, ids: Vec<String>) {
         let queue = Arc::clone(&queue);
         handles.push(std::thread::spawn(move || {
             let mut buf: Vec<ReceiptUpdate> = Vec::new();
-            while let Some(id) = { queue.lock().unwrap().pop() } {
+            while let Some(id) = { queue.lock().unwrap_or_else(|e| e.into_inner()).pop() } {
                 let package_id = receipts::owner_of(&id, &RealPkgUtil);
                 buf.push(ReceiptUpdate { id, package_id });
                 if buf.len() >= RECEIPT_BATCH {
@@ -114,12 +115,12 @@ fn prefetch(pkgs: BTreeSet<String>, all: Vec<String>) -> Prefetched {
         let results = Arc::clone(&results);
         handles.push(std::thread::spawn(move || {
             loop {
-                let Some(pkg) = queue.lock().unwrap().pop() else {
+                let Some(pkg) = queue.lock().unwrap_or_else(|e| e.into_inner()).pop() else {
                     break;
                 };
                 let files = RealPkgUtil.files(&pkg);
                 let root = RealPkgUtil.install_root(&pkg);
-                let mut r = results.lock().unwrap();
+                let mut r = results.lock().unwrap_or_else(|e| e.into_inner());
                 r.0.insert(pkg.clone(), files);
                 r.1.insert(pkg, root);
             }
@@ -129,7 +130,7 @@ fn prefetch(pkgs: BTreeSet<String>, all: Vec<String>) -> Prefetched {
         let _ = h.join();
     }
     let (files, roots) = Arc::try_unwrap(results)
-        .map(|m| m.into_inner().unwrap())
+        .map(|m| m.into_inner().unwrap_or_else(|e| e.into_inner()))
         .unwrap_or_default();
     Prefetched { files, roots, all }
 }
@@ -169,13 +170,13 @@ pub fn remove_items(ids: Vec<String>) -> Vec<RemovalResult> {
 }
 
 #[tauri::command]
-pub fn reveal_in_finder(path: String) -> Result<(), String> {
+pub fn reveal_in_finder(path: String) -> Result<(), CmdError> {
     std::process::Command::new("open")
         .arg("-R")
         .arg(&path)
         .spawn()
         .map(|_| ())
-        .map_err(|e| e.to_string())
+        .map_err(CmdError::from)
 }
 
 #[derive(Deserialize)]
@@ -213,7 +214,7 @@ pub async fn removal_preview(removing: Vec<String>, bundles: Vec<OwnedBundle>) -
 pub async fn index_search(
     state: tauri::State<'_, crate::search::SearchIndex>,
     docs: Vec<crate::search::SearchDoc>,
-) -> Result<(), String> {
+) -> Result<(), CmdError> {
     let index = state.0.clone();
     tauri::async_runtime::spawn_blocking(move || {
         let vectors: Vec<(String, Vec<f32>)> = docs
@@ -242,7 +243,7 @@ pub async fn index_search(
         *index.lock().unwrap_or_else(|e| e.into_inner()) = vectors;
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| CmdError::Internal(e.to_string()))
 }
 
 #[tauri::command(async)]
@@ -269,14 +270,20 @@ fn valid_export_name(name: &str) -> bool {
 /// Write export files into the user's Downloads folder; returns that folder's
 /// path so the frontend can reveal it. Rejects names with path separators.
 #[tauri::command]
-pub fn save_export(app: AppHandle, files: Vec<ExportFile>) -> Result<String, String> {
+pub fn save_export(app: AppHandle, files: Vec<ExportFile>) -> Result<String, CmdError> {
     use tauri::Manager;
-    let dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    let dir = app
+        .path()
+        .download_dir()
+        .map_err(|e| CmdError::Internal(e.to_string()))?;
     for f in &files {
         if !valid_export_name(&f.name) {
-            return Err(format!("invalid export file name: {}", f.name));
+            return Err(CmdError::Internal(format!(
+                "invalid export file name: {}",
+                f.name
+            )));
         }
-        std::fs::write(dir.join(&f.name), &f.contents).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join(&f.name), &f.contents).map_err(CmdError::from)?;
     }
     Ok(dir.to_string_lossy().into_owned())
 }
@@ -294,7 +301,7 @@ pub struct UsageHit {
 /// blocking pool. Unreadable files are skipped; all failure modes degrade to
 /// an empty result.
 #[tauri::command]
-pub async fn scan_usage() -> Result<Vec<UsageHit>, String> {
+pub async fn scan_usage() -> Result<Vec<UsageHit>, CmdError> {
     tauri::async_runtime::spawn_blocking(|| {
         let mut hits = Vec::new();
         for path in crate::usage::find_projects(&crate::usage::RealFinder) {
@@ -330,7 +337,7 @@ pub async fn scan_usage() -> Result<Vec<UsageHit>, String> {
         hits
     })
     .await
-    .map_err(|e| e.to_string())
+    .map_err(|e| CmdError::Internal(e.to_string()))
 }
 
 #[cfg(test)]

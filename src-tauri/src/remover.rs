@@ -1,9 +1,10 @@
+use crate::error::CmdError;
 use crate::model::{RemovalResult, RemovalStatus};
 use std::process::Command;
 
 pub trait Trasher {
-    fn trash(&self, paths: &[String]) -> Result<(), String>;
-    fn trash_privileged(&self, paths: &[String]) -> Result<(), String>;
+    fn trash(&self, paths: &[String]) -> Result<(), CmdError>;
+    fn trash_privileged(&self, paths: &[String]) -> Result<(), CmdError>;
 }
 
 pub fn is_system_path(path: &str, home: &str) -> bool {
@@ -38,14 +39,16 @@ pub fn remove_paths(paths: &[String], home: &str, trasher: &dyn Trasher) -> Vec<
             } else {
                 &user_result
             };
+            let (status, message) = match outcome {
+                Ok(()) => (RemovalStatus::Trashed, None),
+                Err(CmdError::Canceled) => (RemovalStatus::Canceled, None),
+                Err(e) => (RemovalStatus::Failed, Some(e.to_string())),
+            };
             RemovalResult {
                 id: p.clone(),
                 path: p.clone(),
-                status: match outcome {
-                    Ok(()) => RemovalStatus::Trashed,
-                    Err(_) => RemovalStatus::Failed,
-                },
-                message: outcome.as_ref().err().cloned(),
+                status,
+                message,
             }
         })
         .collect()
@@ -54,11 +57,11 @@ pub fn remove_paths(paths: &[String], home: &str, trasher: &dyn Trasher) -> Vec<
 pub struct RealTrasher;
 
 impl Trasher for RealTrasher {
-    fn trash(&self, paths: &[String]) -> Result<(), String> {
-        trash::delete_all(paths).map_err(|e| e.to_string())
+    fn trash(&self, paths: &[String]) -> Result<(), CmdError> {
+        trash::delete_all(paths).map_err(|e| CmdError::Internal(e.to_string()))
     }
 
-    fn trash_privileged(&self, paths: &[String]) -> Result<(), String> {
+    fn trash_privileged(&self, paths: &[String]) -> Result<(), CmdError> {
         let home = std::env::var("HOME").unwrap_or_default();
         let trash = format!("{home}/.Trash");
         // `set -e` makes any failed move abort with a non-zero exit, so a move that
@@ -81,12 +84,16 @@ impl Trasher for RealTrasher {
             .arg("-e")
             .arg(apple)
             .output()
-            .map_err(|e| e.to_string())?;
+            .map_err(CmdError::from)?;
         if out.status.success() {
-            Ok(())
-        } else {
-            Err(String::from_utf8_lossy(&out.stderr).trim().to_string())
+            return Ok(());
         }
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        let canceled = stderr.contains("User canceled") || stderr.contains("(-128)");
+        if canceled {
+            return Err(CmdError::Canceled);
+        }
+        Err(CmdError::PermissionDenied(stderr.trim().to_string()))
     }
 }
 
@@ -111,21 +118,20 @@ mod tests {
         priv_: RefCell<Vec<String>>,
         user_calls: RefCell<u32>,
         priv_calls: RefCell<u32>,
-        fail_privileged: bool,
+        fail_privileged: Option<CmdError>,
     }
     impl Trasher for SpyTrasher {
-        fn trash(&self, paths: &[String]) -> Result<(), String> {
+        fn trash(&self, paths: &[String]) -> Result<(), CmdError> {
             *self.user_calls.borrow_mut() += 1;
             self.user.borrow_mut().extend_from_slice(paths);
             Ok(())
         }
-        fn trash_privileged(&self, paths: &[String]) -> Result<(), String> {
+        fn trash_privileged(&self, paths: &[String]) -> Result<(), CmdError> {
             *self.priv_calls.borrow_mut() += 1;
             self.priv_.borrow_mut().extend_from_slice(paths);
-            if self.fail_privileged {
-                Err("User canceled".into())
-            } else {
-                Ok(())
+            match &self.fail_privileged {
+                Some(e) => Err(e.clone()),
+                None => Ok(()),
             }
         }
     }
@@ -199,7 +205,7 @@ mod tests {
     #[test]
     fn privileged_failure_marks_only_system_paths_failed() {
         let spy = SpyTrasher {
-            fail_privileged: true,
+            fail_privileged: Some(CmdError::PermissionDenied("denied".into())),
             ..Default::default()
         };
         let res = remove_paths(
@@ -212,6 +218,29 @@ mod tests {
         );
         assert_eq!(res[0].status, RemovalStatus::Trashed);
         assert_eq!(res[1].status, RemovalStatus::Failed);
-        assert_eq!(res[1].message.as_deref(), Some("User canceled"));
+        assert_eq!(res[1].message.as_deref(), Some("permission denied: denied"));
+    }
+
+    #[test]
+    fn privileged_cancellation_marks_all_system_paths_canceled_user_still_trashed() {
+        let spy = SpyTrasher {
+            fail_privileged: Some(CmdError::Canceled),
+            ..Default::default()
+        };
+        let res = remove_paths(
+            &paths(&[
+                "/Users/me/Library/Audio/Plug-Ins/VST3/U.vst3",
+                "/Library/Audio/Plug-Ins/VST3/S1.vst3",
+                "/Library/Audio/Plug-Ins/VST3/S2.vst3",
+            ]),
+            "/Users/me",
+            &spy,
+        );
+        assert_eq!(res[0].status, RemovalStatus::Trashed);
+        assert!(
+            res[1..]
+                .iter()
+                .all(|r| r.status == RemovalStatus::Canceled && r.message.is_none())
+        );
     }
 }

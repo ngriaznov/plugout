@@ -24,6 +24,7 @@
 //! traits, so every module's logic is tested without touching the real system.
 
 mod commands;
+mod error;
 mod keywords;
 mod model;
 mod receipts;

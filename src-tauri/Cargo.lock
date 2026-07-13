@@ -2845,6 +2845,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tempfile",
  "tern-engine",
+ "thiserror 2.0.18",
  "trash",
 ]
 
