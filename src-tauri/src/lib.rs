@@ -44,6 +44,22 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(search::SearchIndex::default())
+        .setup(|app| {
+            // The window starts hidden and the frontend shows it after its
+            // first paint. If the frontend never gets there (a JS failure),
+            // this failsafe keeps the app from launching invisible.
+            use tauri::Manager;
+            let window = app.get_webview_window("main");
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(8));
+                if let Some(w) = window
+                    && !w.is_visible().unwrap_or(true)
+                {
+                    let _ = w.show();
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::start_scan,
             commands::plugin_details,

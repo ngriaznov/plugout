@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- The window no longer shows as a blank shell on cold launches (first run,
+  or the first launch in a while). It now stays hidden until the UI has
+  painted its first frame, with a backend failsafe that shows it after 8
+  seconds no matter what.
+- Removal no longer runs on the app's main thread, so the window stays
+  responsive while items move to the Trash.
+
 ## 0.4.0
 
 - Rescans link installer receipts almost instantly: receipts are now cached to
