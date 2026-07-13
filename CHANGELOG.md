@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9
+
+- Internal: migrated the Rust backend to the 2024 edition and applied
+  idiomatic cleanup (let-chains, formatting). No user-facing changes.
+
 ## 0.2.8
 
 - Fixed the plugin table's header row staying sharp above the blur when the

@@ -63,6 +63,10 @@ fn enrich_receipts(app: &AppHandle, ids: Vec<String>) {
         let queue = Arc::clone(&queue);
         handles.push(std::thread::spawn(move || {
             let mut buf: Vec<ReceiptUpdate> = Vec::new();
+            // The block scopes the lock guard so it drops before `owner_of`
+            // runs; otherwise the ~250ms pkgutil spawn would hold the mutex and
+            // serialize every worker. Edition 2024's `if let` temporary
+            // rescoping does not extend to `while let`, so the block stays.
             while let Some(id) = { queue.lock().unwrap().pop() } {
                 let package_id = receipts::owner_of(&id, &RealPkgUtil);
                 buf.push(ReceiptUpdate { id, package_id });
@@ -112,15 +116,17 @@ fn prefetch(pkgs: BTreeSet<String>, all: Vec<String>) -> Prefetched {
     for _ in 0..RECEIPT_WORKERS {
         let queue = Arc::clone(&queue);
         let results = Arc::clone(&results);
-        handles.push(std::thread::spawn(move || loop {
-            let Some(pkg) = queue.lock().unwrap().pop() else {
-                break;
-            };
-            let files = RealPkgUtil.files(&pkg);
-            let root = RealPkgUtil.install_root(&pkg);
-            let mut r = results.lock().unwrap();
-            r.0.insert(pkg.clone(), files);
-            r.1.insert(pkg, root);
+        handles.push(std::thread::spawn(move || {
+            loop {
+                let Some(pkg) = queue.lock().unwrap().pop() else {
+                    break;
+                };
+                let files = RealPkgUtil.files(&pkg);
+                let root = RealPkgUtil.install_root(&pkg);
+                let mut r = results.lock().unwrap();
+                r.0.insert(pkg.clone(), files);
+                r.1.insert(pkg, root);
+            }
         }));
     }
     for h in handles {
@@ -230,9 +236,8 @@ pub async fn index_search(
                     keywords.as_str(),
                     subcats.as_str(),
                 ]
-                .iter()
+                .into_iter()
                 .filter(|s| !s.is_empty())
-                .cloned()
                 .collect::<Vec<_>>()
                 .join(" ");
                 (d.id, tern_engine::embed(&text))
@@ -348,7 +353,7 @@ mod tests {
     /// Full real-system pipeline with timings (not run in CI):
     /// `cargo test full_pipeline -- --ignored --nocapture`
     #[test]
-    #[ignore]
+    #[ignore = "real-system probe; run with `cargo test full_pipeline -- --ignored --nocapture`"]
     fn full_pipeline_probe() {
         let t0 = Instant::now();
         let mut plugins: Vec<PluginBundle> = Vec::new();

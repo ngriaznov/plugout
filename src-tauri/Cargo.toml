@@ -1,10 +1,10 @@
 [package]
 name = "plugout"
-version = "0.2.8"
+version = "0.2.9"
 description = "Find and remove audio plugins (AU, VST3, VST2, CLAP, AAX) on macOS"
-authors = ["Nikita Griaznov"]
+authors = ["Mykyta Hriaznov"]
 license = "Apache-2.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
@@ -31,4 +31,3 @@ flate2 = "1"
 
 [dev-dependencies]
 tempfile = "3"
-

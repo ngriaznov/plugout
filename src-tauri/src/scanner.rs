@@ -62,11 +62,7 @@ fn audio_component_vendor(dict: &plist::Dictionary) -> Option<String> {
 fn vendor_from_bundle_id(bundle_id: &str) -> String {
     let parts: Vec<&str> = bundle_id.split('.').collect();
     let tlds = ["com", "net", "org", "io", "co", "app"];
-    let idx = if parts.len() > 1 && tlds.contains(&parts[0]) {
-        1
-    } else {
-        0
-    };
+    let idx = usize::from(parts.len() > 1 && tlds.contains(&parts[0]));
     parts.get(idx).unwrap_or(&"").to_string()
 }
 
@@ -362,8 +358,11 @@ mod tests {
     #[test]
     fn scan_dir_finds_matching_bundles_only() {
         let dir = tempfile::tempdir().unwrap();
-        make_bundle(dir.path(), "Alpha.vst3",
-            "<key>CFBundleName</key><string>Alpha</string><key>CFBundleIdentifier</key><string>com.x.alpha</string>");
+        make_bundle(
+            dir.path(),
+            "Alpha.vst3",
+            "<key>CFBundleName</key><string>Alpha</string><key>CFBundleIdentifier</key><string>com.x.alpha</string>",
+        );
         make_bundle(
             dir.path(),
             "Beta.component",

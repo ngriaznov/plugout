@@ -47,10 +47,11 @@ pub fn parse_rpp(text: &str) -> Vec<PluginRef> {
         let Some(end) = rest[start + 1..].find('"') else {
             continue;
         };
-        if let Some(r) = split_ref(&rest[start + 1..start + 1 + end]) {
-            if !out.contains(&r) {
-                out.push(r);
-            }
+        // let-chain (stable since 1.88): dedupe in the same condition.
+        if let Some(r) = split_ref(&rest[start + 1..start + 1 + end])
+            && !out.contains(&r)
+        {
+            out.push(r);
         }
     }
     out
@@ -134,10 +135,10 @@ pub fn parse_als(bytes: &[u8]) -> Vec<PluginRef> {
                 break; // no closing tag for this opener kind past here
             };
             let close_end = body_at + j + closer.len();
-            if let Some(r) = ref_from_block(&xml[open_at..close_end]) {
-                if !out.contains(&r) {
-                    out.push(r);
-                }
+            if let Some(r) = ref_from_block(&xml[open_at..close_end])
+                && !out.contains(&r)
+            {
+                out.push(r);
             }
             from = close_end;
         }
@@ -213,7 +214,7 @@ impl ProjectFinder for RealFinder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flate2::{write::GzEncoder, Compression};
+    use flate2::{Compression, write::GzEncoder};
     use std::io::Write;
 
     const RPP: &str = r#"
