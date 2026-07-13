@@ -356,10 +356,12 @@ pub struct UsageHit {
 
 /// Scan DAW project files for plugin references. IO-bound: runs on the
 /// blocking pool. Unreadable files are skipped; all failure modes degrade to
-/// an empty result.
+/// an empty result. `known_names` is the set of installed plugin names, used
+/// only for `.logicx` (its binary `ProjectData` carries no readable plugin
+/// list, so we search for names we already know are installed).
 #[tauri::command]
-pub async fn scan_usage() -> Result<Vec<UsageHit>, CmdError> {
-    tauri::async_runtime::spawn_blocking(|| {
+pub async fn scan_usage(known_names: Vec<String>) -> Result<Vec<UsageHit>, CmdError> {
+    tauri::async_runtime::spawn_blocking(move || {
         let mut hits = Vec::new();
         for path in crate::usage::find_projects(&crate::usage::RealFinder) {
             let Ok(meta) = std::fs::metadata(&path) else {
@@ -383,7 +385,7 @@ pub async fn scan_usage() -> Result<Vec<UsageHit>, CmdError> {
                     .map(|b| crate::usage::parse_song(&b))
                     .unwrap_or_default()
             } else if lower.ends_with(".logicx") {
-                Vec::new() // Task 4 fills this in
+                crate::usage::parse_logic(&path, &known_names)
             } else {
                 std::fs::read_to_string(&path)
                     .map(|t| crate::usage::parse_rpp(&t))

@@ -167,7 +167,7 @@ export default function App() {
     }));
     indexSearch(docs).catch((e) => console.warn("semantic index failed", e));
     if (settings.usageScan) {
-      scanUsage().then(setUsageHits, (e) => {
+      scanUsage([...new Set(bundles.map((b) => b.name))]).then(setUsageHits, (e) => {
         console.warn("usage scan failed", e);
         setUsageHits([]);
       });

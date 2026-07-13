@@ -240,6 +240,55 @@ pub fn find_projects(finder: &dyn ProjectFinder) -> Vec<PathBuf> {
     all.into_iter().filter(|p| wanted(p)).collect()
 }
 
+/// Byte-boundary check: the byte before/after a match must not be ASCII
+/// alphanumeric (buffer edges count as boundaries).
+fn find_known_names(data: &[u8], known: &[String]) -> Vec<String> {
+    let boundary = |b: Option<&u8>| b.is_none_or(|b| !b.is_ascii_alphanumeric());
+    known
+        .iter()
+        .filter(|name| name.len() >= 4)
+        .filter(|name| {
+            let needle = name.as_bytes();
+            data.windows(needle.len()).enumerate().any(|(i, w)| {
+                w == needle
+                    && boundary(i.checked_sub(1).and_then(|j| data.get(j)))
+                    && boundary(data.get(i + needle.len()))
+            })
+        })
+        .cloned()
+        .collect()
+}
+
+/// Logic Pro projects are bundles; the arrangement lives in undocumented
+/// binary `Alternatives/*/ProjectData` files. Best-effort: search them for
+/// the names of plugins we already know are installed.
+pub fn parse_logic(project: &std::path::Path, known: &[String]) -> Vec<PluginRef> {
+    const MAX: u64 = 64 * 1024 * 1024;
+    let Ok(alts) = std::fs::read_dir(project.join("Alternatives")) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = Vec::new();
+    for alt in alts.flatten() {
+        let pd = alt.path().join("ProjectData");
+        if std::fs::metadata(&pd).is_ok_and(|m| m.is_file() && m.len() <= MAX)
+            && let Ok(data) = std::fs::read(&pd)
+        {
+            for n in find_known_names(&data, known) {
+                if !names.contains(&n) {
+                    names.push(n);
+                }
+            }
+        }
+    }
+    names
+        .into_iter()
+        .map(|name| PluginRef {
+            name,
+            vendor: String::new(),
+        })
+        .collect()
+}
+
 pub struct RealFinder;
 
 impl ProjectFinder for RealFinder {
@@ -565,5 +614,41 @@ mod tests {
         let found = find_projects(&spy);
         assert_eq!(found, vec![PathBuf::from("/walked/x.rpp")]);
         assert!(spy.walked.get());
+    }
+
+    #[test]
+    fn logic_finds_known_names_with_boundaries() {
+        let known = vec!["Serum".to_string(), "Pro-Q 3".to_string(), "EQ".to_string()];
+        let data = b"\x00\x01Serum\x00binary\xffPro-Q 3\x02SerumX NotSerum";
+        let found = find_known_names(data, &known);
+        assert!(found.contains(&"Serum".to_string())); // clean boundaries
+        assert!(found.contains(&"Pro-Q 3".to_string()));
+        assert!(!found.contains(&"EQ".to_string())); // < 4 chars skipped
+        // "SerumX"/"NotSerum" boundary-fail but the first clean "Serum" already hit;
+        // verify boundary logic in isolation:
+        assert!(find_known_names(b"XSerumX", &["Serum".to_string()]).is_empty());
+    }
+
+    #[test]
+    fn logic_reads_project_data_under_alternatives() {
+        let dir = tempfile::tempdir().unwrap();
+        let proj = dir.path().join("My Song.logicx");
+        let alt = proj.join("Alternatives").join("000");
+        std::fs::create_dir_all(&alt).unwrap();
+        std::fs::write(alt.join("ProjectData"), b"\x00garbage Serum\x00garbage").unwrap();
+        let refs = parse_logic(&proj, &["Serum".to_string(), "Absent".to_string()]);
+        assert_eq!(
+            refs,
+            vec![PluginRef {
+                name: "Serum".into(),
+                vendor: "".into()
+            }]
+        );
+    }
+
+    #[test]
+    fn logic_missing_alternatives_yields_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(parse_logic(&dir.path().join("nope.logicx"), &["Serum".to_string()]).is_empty());
     }
 }

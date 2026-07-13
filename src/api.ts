@@ -86,4 +86,5 @@ export interface UsageHit {
   project: string;
   mtimeMs: number;
 }
-export const scanUsage = () => (isTauri ? invoke<UsageHit[]>("scan_usage") : mockScanUsage());
+export const scanUsage = (knownNames: string[]) =>
+  isTauri ? invoke<UsageHit[]>("scan_usage", { knownNames }) : mockScanUsage();
