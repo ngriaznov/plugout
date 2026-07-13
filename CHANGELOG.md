@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.4.0
+
+- Rescans link installer receipts almost instantly: receipts are now cached to
+  disk, keyed by each bundle's path and modification time, so only new or
+  changed bundles re-run `pkgutil`.
+- The Used column and inspector now also read Studio One (`.song`) and Logic
+  Pro (`.logicx`) projects, alongside the existing REAPER and Ableton support.
+  Logic project data isn't a documented format, so matches there are
+  best-effort name lookups rather than an exact reference count.
+- New Settings → Scan locations: add extra folders to scan for plugins via a
+  native folder picker; a rescan runs automatically when the list changes.
+- Full keyboard navigation: `/` or Cmd+F jumps to search, arrow keys move
+  between rows (Home/End to jump to the first/last), Space selects a row,
+  Enter opens its inspector, and dialogs trap focus and hand it back to
+  where you were when closed.
+- Export now follows whatever the table is currently showing (search,
+  filters). With a selection active, Export asks whether to write the
+  selected plugins or everything shown.
+- Canceling the admin password prompt during a system-scope removal no
+  longer shows an error — it just keeps your selection so you can try again.
+- Dates in the UI and export filenames use your local timezone instead of UTC.
+- Internal: added a Playwright end-to-end suite (`npm run e2e`, 10 specs)
+  running against the mock-backend dev server, wired into CI; the Vitest
+  suite grew to 141 tests, including App-level integration coverage.
+
 ## 0.3.0
 
 - The window now uses a seamless overlay title bar: the app's background fills

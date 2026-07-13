@@ -26,7 +26,8 @@ the Trash, so any mistake is a drag-and-drop away from undone.
 ## What it does
 
 - Scans the user (`~/Library`) and system (`/Library`) plugin folders for all five
-  formats, streaming results as they're found — no waiting for a full scan.
+  formats, streaming results as they're found — no waiting for a full scan. Add
+  your own folders in Settings → Scan locations if plugins live somewhere else.
 - Merges every plugin's format bundles into a single row — including vendor-spelling
   variants and companion editions ("Serum FX", a "Pro" standalone app), which fold
   into the same product. Select the whole plugin with the checkbox, or click
@@ -47,19 +48,24 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   (`pkgutil` receipt), and exactly which files a removal will touch. One click to reveal
   any bundle in Finder.
 - Sortable columns — name, vendor, format count, version (numeric-aware), size, last used.
+- **Fully keyboard-driven.** `/` or Cmd+F jumps to search, arrow keys walk the
+  table (Home/End for the first/last row), Space selects, Enter opens the
+  inspector, and dialogs trap focus so Tab can't escape them.
 - **Removal moves bundles to the Trash**, never deletes. User-scope plugins need no
   privileges; system-scope removals ask for an administrator password once per batch,
   not once per plugin.
 - **Search understands function words.** Type `reverb` or `drum machine` and a
   "Related matches" section lists plugins whose names never say it — an on-device
   embedding model ranks every installed plugin against the query. No network involved.
-- **Shows what you actually use.** plugout scans REAPER and Ableton project files on
-  your Mac and shows, per plugin, how many projects reference it and when it was last
-  used — sort by the Used column to find safe delete candidates. Off by default —
-  enable it in Settings.
+- **Shows what you actually use.** plugout scans REAPER, Ableton, Studio One and
+  Logic Pro project files on your Mac and shows, per plugin, how many projects
+  reference it and when it was last used — sort by the Used column to find safe
+  delete candidates. Off by default — enable it in Settings.
 - **One-click inventory export.** The Export button writes
-  `plugout-inventory-<date>.csv` and `.json` to Downloads — every product, install,
-  version, path and installer package.
+  `plugout-inventory-<date>.csv` and `.json` to Downloads for whatever the table
+  is currently showing — every product, install, version, path and installer
+  package. With a selection active, it asks whether to export just the
+  selected plugins or everything shown.
 - Light and dark theme, or auto-follow the system appearance.
 
 ## Install
@@ -89,13 +95,18 @@ and copyright, then walks the Applications folders for companion apps linked to 
 plugins — all streamed to the UI over
 Tauri events within the first seconds. Installer receipts are linked afterwards in
 the background (`pkgutil --file-info` is slow, so it never blocks the list; a
-"linking installers…" indicator shows while it runs). When you remove something,
+"linking installers…" indicator shows while it runs) and cached to disk keyed by
+each bundle's path and modification time, so a rescan only re-runs `pkgutil` on
+bundles that actually changed. When you remove something,
 `pkgutil --files` over the plugins' receipt families reveals the installers' support
 files, guarded so nothing shared with surviving plugins is ever offered. Removal
 uses the macOS Trash API for user files and a single `with administrator privileges`
 shell call for the whole system-scope batch. Project usage comes from Spotlight-located
-.rpp/.als files, parsed for their plugin reference blocks — read-only, skipped silently
-when unreadable, and only run when the usage scan is enabled in Settings.
+.rpp/.als/.song/.logicx files, parsed for their plugin reference blocks — read-only,
+skipped silently when unreadable, and only run when the usage scan is enabled in
+Settings. Studio One's `.song` is a zip of XML and parses exactly; Logic's `.logicx`
+has no documented project format, so plugout falls back to a best-effort search for
+known plugin names inside its ProjectData file rather than an exact reference count.
 
 Semantic search runs in-process: a vendored copy of
 [ternlight](https://github.com/soycaporal/ternlight)'s int8 inference engine embeds
@@ -123,6 +134,7 @@ Tests:
 ```sh
 npm test              # frontend: merging, sorting, components
 cd src-tauri && cargo test   # backend: scanner, receipts, remover
+npm run e2e            # end-to-end: Playwright against `npm run dev`'s mock backend
 ```
 
 ## Releasing
