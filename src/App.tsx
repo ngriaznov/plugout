@@ -289,8 +289,6 @@ export default function App() {
         onScope={setScope}
         query={query}
         onQuery={setQuery}
-        themePref={themePref}
-        onTheme={changeTheme}
       />
 
       <main className="main">
@@ -375,7 +373,13 @@ export default function App() {
         )}
 
         {settingsOpen && (
-          <SettingsModal settings={settings} onChange={changeSettings} onClose={closeSettings} />
+          <SettingsModal
+            settings={settings}
+            onChange={changeSettings}
+            themePref={themePref}
+            onTheme={changeTheme}
+            onClose={closeSettings}
+          />
         )}
 
         {exportChoice && (

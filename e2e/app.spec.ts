@@ -45,9 +45,13 @@ test("export produces a toast", async ({ page }) => {
   await expect(page.getByText(/exported/i)).toBeVisible();
 });
 
-test("theme toggle flips the root theme", async ({ page }) => {
+test("theme toggle in Settings flips the root theme", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText(/plugins$/)).toBeVisible();
-  await page.getByRole("radio", { name: /dark/i }).click();
+  await page.getByRole("button", { name: /settings/i }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("radio", { name: /dark/i }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", /dark/);
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
 });

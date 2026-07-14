@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.2
+
+- The theme switcher (Light / Auto / Dark) moved from the sidebar into
+  Settings, under a new Appearance section.
+- (0.4.1 was withdrawn shortly after publishing and never reached general
+  availability; this release supersedes it.)
+
 ## 0.4.0
 
 - Rescans link installer receipts almost instantly: receipts are now cached to

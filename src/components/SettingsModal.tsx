@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Settings } from "../settings";
+import type { ThemePref } from "../theme";
 import { useFocusTrap } from "../useFocusTrap";
 
 interface Props {
   settings: Settings;
   onChange: (patch: Partial<Settings>) => void;
+  themePref: ThemePref;
+  onTheme: (t: ThemePref) => void;
   onClose: () => void;
 }
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
-export function SettingsModal({ settings, onChange, onClose }: Props) {
+export function SettingsModal({ settings, onChange, themePref, onTheme, onClose }: Props) {
   const dialogRef = useFocusTrap<HTMLDivElement>();
   const [manualDir, setManualDir] = useState("");
 
@@ -42,6 +45,23 @@ export function SettingsModal({ settings, onChange, onClose }: Props) {
           <h2>Settings</h2>
           <button className="x" aria-label="Close settings" onClick={onClose}>✕</button>
         </div>
+        <section className="settings-section">
+          <h3>Appearance</h3>
+          <div className="theme-seg" role="radiogroup" aria-label="Theme">
+            {(["light", "system", "dark"] as const).map((t) => (
+              <button
+                key={t}
+                role="radio"
+                aria-checked={themePref === t}
+                className={themePref === t ? "on" : ""}
+                onClick={() => onTheme(t)}
+              >
+                {t === "light" ? "Light" : t === "dark" ? "Dark" : "Auto"}
+              </button>
+            ))}
+          </div>
+        </section>
+
         <label className="setting-row">
           <input
             type="checkbox"

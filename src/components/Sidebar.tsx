@@ -1,11 +1,8 @@
 import type { Format, Scope, PluginBundle } from "../types";
 import { FORMATS } from "../types";
-import type { ThemePref } from "../theme";
 import { formatBytes } from "../util";
 
 interface Props {
-  themePref: ThemePref;
-  onTheme: (t: ThemePref) => void;
   bundles: PluginBundle[];
   pluginCount: number;
   loading: boolean;
@@ -65,20 +62,6 @@ export function Sidebar(p: Props) {
           </button>
         ))}
       </nav>
-
-      <div className="theme-seg" role="radiogroup" aria-label="Theme">
-        {(["light", "system", "dark"] as const).map((t) => (
-          <button
-            key={t}
-            role="radio"
-            aria-checked={p.themePref === t}
-            className={p.themePref === t ? "on" : ""}
-            onClick={() => p.onTheme(t)}
-          >
-            {t === "light" ? "Light" : t === "dark" ? "Dark" : "Auto"}
-          </button>
-        ))}
-      </div>
 
       <footer className="sidebar-foot">
         {p.loading
