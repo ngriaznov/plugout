@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.3
+
+- The sidebar shows a disk-usage chart below the filters: one stacked bar of
+  your plugins' total size by format, with per-format sizes listed beneath.
+  Colors are colorblind-checked in both themes.
+- Settings reorganized into three labeled sections in a more natural order —
+  Scan locations, Plugin usage, Appearance — with consistent dividers.
+
 ## 0.4.2
 
 - The theme switcher (Light / Auto / Dark) moved from the sidebar into

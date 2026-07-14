@@ -46,38 +46,6 @@ export function SettingsModal({ settings, onChange, themePref, onTheme, onClose 
           <button className="x" aria-label="Close settings" onClick={onClose}>✕</button>
         </div>
         <section className="settings-section">
-          <h3>Appearance</h3>
-          <div className="theme-seg" role="radiogroup" aria-label="Theme">
-            {(["light", "system", "dark"] as const).map((t) => (
-              <button
-                key={t}
-                role="radio"
-                aria-checked={themePref === t}
-                className={themePref === t ? "on" : ""}
-                onClick={() => onTheme(t)}
-              >
-                {t === "light" ? "Light" : t === "dark" ? "Dark" : "Auto"}
-              </button>
-            ))}
-          </div>
-        </section>
-
-        <label className="setting-row">
-          <input
-            type="checkbox"
-            checked={settings.usageScan}
-            onChange={(e) => onChange({ usageScan: e.target.checked })}
-          />
-          <span>
-            <span className="setting-title">Scan DAW projects for plugin usage</span>
-            <span className="setting-sub">
-              Finds REAPER, Ableton, Studio One and Logic Pro project files via Spotlight and reads them to
-              show the Used column. May trigger macOS folder-access prompts.
-            </span>
-          </span>
-        </label>
-
-        <section className="settings-section">
           <h3>Scan locations</h3>
           <p className="setting-sub">
             Extra folders scanned for plugin bundles, alongside the standard ones.
@@ -121,6 +89,41 @@ export function SettingsModal({ settings, onChange, themePref, onTheme, onClose 
               </button>
             </form>
           )}
+        </section>
+
+        <section className="settings-section">
+          <h3>Plugin usage</h3>
+          <label className="setting-row">
+            <input
+              type="checkbox"
+              checked={settings.usageScan}
+              onChange={(e) => onChange({ usageScan: e.target.checked })}
+            />
+            <span>
+              <span className="setting-title">Scan DAW projects</span>
+              <span className="setting-sub">
+                Finds REAPER, Ableton, Studio One and Logic Pro project files via Spotlight and reads them to
+                show the Used column. May trigger macOS folder-access prompts.
+              </span>
+            </span>
+          </label>
+        </section>
+
+        <section className="settings-section">
+          <h3>Appearance</h3>
+          <div className="theme-seg" role="radiogroup" aria-label="Theme">
+            {(["light", "system", "dark"] as const).map((t) => (
+              <button
+                key={t}
+                role="radio"
+                aria-checked={themePref === t}
+                className={themePref === t ? "on" : ""}
+                onClick={() => onTheme(t)}
+              >
+                {t === "light" ? "Light" : t === "dark" ? "Dark" : "Auto"}
+              </button>
+            ))}
+          </div>
         </section>
       </div>
     </div>

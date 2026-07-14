@@ -1,6 +1,7 @@
 import type { Format, Scope, PluginBundle } from "../types";
 import { FORMATS } from "../types";
 import { formatBytes } from "../util";
+import { SizeChart } from "./SizeChart";
 
 interface Props {
   bundles: PluginBundle[];
@@ -62,6 +63,8 @@ export function Sidebar(p: Props) {
           </button>
         ))}
       </nav>
+
+      <SizeChart bundles={p.bundles} />
 
       <footer className="sidebar-foot">
         {p.loading
