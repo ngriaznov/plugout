@@ -93,3 +93,20 @@ jobs:
             src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz
             latest.json
           generate_release_notes: true
+
+      - name: Update Homebrew cask
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA=$(shasum -a 256 src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | cut -d' ' -f1)
+          git fetch origin main
+          git checkout -B main origin/main
+          sed -i '' \
+            -e "s/^  version \".*\"/  version \"${VERSION}\"/" \
+            -e "s/^  sha256 \".*\"/  sha256 \"${SHA}\"/" \
+            Casks/plugout.rb
+          git config user.name "Nikita Griaznov"
+          git config user.email "17167893+ngriaznov@users.noreply.github.com"
+          git add Casks/plugout.rb
+          git commit -m "Update Homebrew cask to ${VERSION}"
+          git push origin main

@@ -11,24 +11,51 @@
   <img src="docs/screenshot-light.png" alt="plugout showing a plugin list with per-format selection and the removal bar">
 </picture>
 
-## Why
+## What is this
 
-Every plugin installer drops three or four copies of the same thing — a `.component`
+Every plugin installer drops three or four copies of the same thing: a `.component`
 here, a `.vst3` there, a VST2 and an AAX build you never asked for. Ten years of
-producing later, your plugin folders hold hundreds of bundles, your DAW scans them all
-at every launch, and nobody remembers which ones are still in use. Vendors ship
+producing later, your plugin folders hold hundreds of bundles, your DAW scans them
+all at every launch, and nobody remembers which ones are still in use. Vendors ship
 uninstallers inconsistently or not at all.
 
-plugout scans all of it, shows one row per plugin instead of one per file, and lets you
-throw out whole plugins or individual formats. Nothing is deleted — everything goes to
-the Trash, so any mistake is a drag-and-drop away from undone.
+plugout scans all of it, shows one row per plugin instead of one per file, and lets
+you throw out whole plugins or single formats, along with the companion apps and
+support files their installers left behind. Nothing is deleted outright: everything
+goes to the Trash, so any mistake is a drag-and-drop away from undone.
+
+## Install
+
+With Homebrew:
+
+```sh
+brew tap ngriaznov/plugout https://github.com/ngriaznov/plugout
+brew install --cask --no-quarantine plugout
+```
+
+Or grab the latest DMG from [Releases](../../releases), open it, and drag plugout
+to Applications.
+
+The app is not code-signed yet. The `--no-quarantine` flag above takes care of
+that; if you install from the DMG instead, the first launch needs either
+
+```sh
+xattr -cr /Applications/plugout.app
+```
+
+or a right-click on the app, then Open, then Open.
+
+Updates are automatic from then on: the app checks this repo's releases at
+launch, and when a new version exists a pill appears in the toolbar. One click
+downloads it, one more restarts into the new version. Updates are signed and
+verified against a key embedded in the app.
 
 ## What it does
 
 - Scans the user (`~/Library`) and system (`/Library`) plugin folders for all five
-  formats, streaming results as they're found — no waiting for a full scan. Add
-  your own folders in Settings → Scan locations if plugins live somewhere else.
-- Merges every plugin's format bundles into a single row — including vendor-spelling
+  formats, streaming results as they are found. Add your own folders in
+  Settings → Scan locations if plugins live somewhere else.
+- Merges every plugin's format bundles into a single row, including vendor-spelling
   variants and companion editions ("Serum FX", a "Pro" standalone app), which fold
   into the same product. Select the whole plugin with the checkbox, or click
   individual format chips to remove just the VST2, say, and keep the rest.
@@ -37,17 +64,17 @@ the Trash, so any mistake is a drag-and-drop away from undone.
 - **Companion apps are a format too.** The standalone app a plugin installed in
   `/Applications` shows up as an `APP` chip on the plugin's row, matched by name,
   bundle-id vendor, or vendor folder; vendor tools like license managers get their
-  own row. Remove them like any format — or keep them.
+  own row. Remove them like any format, or keep them.
 - **Support files go too, safely.** Removal offers the presets, preferences and caches
-  the plugin's installer wrote — only with receipt proof, only when no surviving plugin
+  the plugin's installer wrote. Only with receipt proof, only when no surviving plugin
   shares the installer, only under safe Library roots, and always visibly toggleable
   in the confirmation.
-- The inspector header identifies the plugin — Instrument / Effect / MIDI Effect (from
+- The inspector header identifies the plugin: Instrument / Effect / MIDI Effect (from
   the AU component type) and copyright, read straight from the bundle. Below it, each
   install's version, size, location, bundle ID, which macOS installer package placed it
   (`pkgutil` receipt), and exactly which files a removal will touch. One click to reveal
   any bundle in Finder.
-- Sortable columns — name, vendor, format count, version (numeric-aware), size, last used.
+- Sortable columns: name, vendor, format count, version (numeric-aware), size, last used.
 - **Fully keyboard-driven.** `/` or Cmd+F jumps to search, arrow keys walk the
   table (Home/End for the first/last row), Space selects, Enter opens the
   inspector, and dialogs trap focus so Tab can't escape them.
@@ -55,36 +82,18 @@ the Trash, so any mistake is a drag-and-drop away from undone.
   privileges; system-scope removals ask for an administrator password once per batch,
   not once per plugin.
 - **Search understands function words.** Type `reverb` or `drum machine` and a
-  "Related matches" section lists plugins whose names never say it — an on-device
+  "Related matches" section lists plugins whose names never say it; an on-device
   embedding model ranks every installed plugin against the query. No network involved.
 - **Shows what you actually use.** plugout scans REAPER, Ableton, Studio One and
   Logic Pro project files on your Mac and shows, per plugin, how many projects
-  reference it and when it was last used — sort by the Used column to find safe
-  delete candidates. Off by default — enable it in Settings.
+  reference it and when it was last used. Sort by the Used column to find safe
+  delete candidates. Off by default; enable it in Settings.
 - **One-click inventory export.** The Export button writes
   `plugout-inventory-<date>.csv` and `.json` to Downloads for whatever the table
-  is currently showing — every product, install, version, path and installer
+  is currently showing: every product, install, version, path and installer
   package. With a selection active, it asks whether to export just the
   selected plugins or everything shown.
 - Light and dark theme, or auto-follow the system appearance.
-
-## Install
-
-Grab the latest DMG from [Releases](../../releases), open it, drag plugout to
-Applications.
-
-The app is not code-signed yet, so the first launch needs one of:
-
-```sh
-xattr -cr /Applications/plugout.app
-```
-
-or right-click the app → Open → Open.
-
-**Updates are automatic** from then on: the app checks this repo's releases at
-launch, and when a new version exists a pill appears in the toolbar — one click
-downloads it, one more restarts into the new version. Updates are signed and
-verified against a key embedded in the app.
 
 ## How it works
 
@@ -92,28 +101,28 @@ The backend is Rust. A scan walks `Components`, `VST`, `VST3`, `CLAP` under both
 `Library/Audio/Plug-Ins` roots plus the Avid AAX directory, reads each bundle's
 `Info.plist` for name, vendor, version, bundle ID, category (the AU component type)
 and copyright, then walks the Applications folders for companion apps linked to those
-plugins — all streamed to the UI over
-Tauri events within the first seconds. Installer receipts are linked afterwards in
-the background (`pkgutil --file-info` is slow, so it never blocks the list; a
-"linking installers…" indicator shows while it runs) and cached to disk keyed by
-each bundle's path and modification time, so a rescan only re-runs `pkgutil` on
-bundles that actually changed. When you remove something,
-`pkgutil --files` over the plugins' receipt families reveals the installers' support
-files, guarded so nothing shared with surviving plugins is ever offered. Removal
-uses the macOS Trash API for user files and a single `with administrator privileges`
-shell call for the whole system-scope batch. Project usage comes from Spotlight-located
-.rpp/.als/.song/.logicx files, parsed for their plugin reference blocks — read-only,
-skipped silently when unreadable, and only run when the usage scan is enabled in
-Settings. Studio One's `.song` is a zip of XML and parses the actual XML; Logic's `.logicx`
-has no documented project format, so plugout falls back to a best-effort search for
-known plugin names inside its ProjectData file rather than an exact reference count.
+plugins, all streamed to the UI over Tauri events within the first seconds.
+Installer receipts are linked afterwards in the background (`pkgutil --file-info`
+is slow, so it never blocks the list; a "linking installers" indicator shows while
+it runs) and cached to disk keyed by each bundle's path and modification time, so a
+rescan only re-runs `pkgutil` on bundles that actually changed. When you remove
+something, `pkgutil --files` over the plugins' receipt families reveals the
+installers' support files, guarded so nothing shared with surviving plugins is ever
+offered. Removal uses the macOS Trash API for user files and a single
+`with administrator privileges` shell call for the whole system-scope batch.
+Project usage comes from Spotlight-located .rpp/.als/.song/.logicx files, parsed
+for their plugin reference blocks: read-only, skipped silently when unreadable,
+and only run when the usage scan is enabled in Settings. Studio One's `.song` is a
+zip of XML and parses the actual XML; Logic's `.logicx` has no documented project
+format, so plugout falls back to a best-effort search for known plugin names inside
+its ProjectData file rather than an exact reference count.
 
 Semantic search runs in-process: a vendored copy of
 [ternlight](https://github.com/soycaporal/ternlight)'s int8 inference engine embeds
 each scanned bundle's name, vendor, category and a curated keyword tag into a
 384-dimension vector; queries rank by dot product, and the UI keeps only hits close
 to the best match that isn't already a plain substring hit. The model binary is
-fetched once at build time, pinned by SHA-256 — the app itself never touches the
+fetched once at build time, pinned by SHA-256. The app itself never touches the
 network for search.
 
 The frontend is React. Format bundles are merged into plugins client-side
@@ -141,13 +150,14 @@ npm run e2e            # end-to-end: Playwright against `npm run dev`'s mock bac
 
 Bump `version` in [src-tauri/Cargo.toml](src-tauri/Cargo.toml) and push to `main`.
 CI notices the version has no tag yet, builds a universal (Intel + Apple Silicon) DMG,
-tags `v<version>`, and publishes a GitHub release with the DMG attached. Pushes that
-don't change the version do nothing.
+tags `v<version>`, publishes a GitHub release with the DMG attached, and updates the
+Homebrew cask in [Casks/plugout.rb](Casks/plugout.rb) to match. Pushes that don't
+change the version do nothing.
 
 ## Scope
 
-plugout removes plugin bundles, their companion applications, and — with installer
-receipts as proof — the support files those installers wrote. Files that can't be
+plugout removes plugin bundles, their companion applications, and, with installer
+receipts as proof, the support files those installers wrote. Files that can't be
 tied to an installer, or whose installer is shared with plugins staying on the
 machine, are deliberately left alone. Everything goes through the Trash.
 
