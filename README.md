@@ -33,6 +33,9 @@ brew tap ngriaznov/plugout https://github.com/ngriaznov/plugout
 brew install --cask --no-quarantine plugout
 ```
 
+Recent Homebrew versions refuse casks from untrusted taps; if yours does, run
+`brew trust ngriaznov/plugout` once and install again.
+
 Or grab the latest DMG from [Releases](../../releases), open it, and drag plugout
 to Applications.
 
