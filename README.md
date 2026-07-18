@@ -22,7 +22,7 @@ uninstallers inconsistently or not at all.
 plugout scans all of it, shows one row per plugin instead of one per file, and lets
 you throw out whole plugins or single formats, along with the companion apps and
 support files their installers left behind. Nothing is deleted outright: everything
-goes to the Trash, so any mistake is a drag-and-drop away from undone.
+goes to the Trash. Any mistake is a drag-and-drop away from undone.
 
 ## Install
 
@@ -159,7 +159,7 @@ change the version do nothing.
 
 ## Scope
 
-plugout removes plugin bundles, their companion applications, and, with installer
+plugout removes plugin bundles, their companion apps, and, with installer
 receipts as proof, the support files those installers wrote. Files that can't be
 tied to an installer, or whose installer is shared with plugins staying on the
 machine, are deliberately left alone. Everything goes through the Trash.
