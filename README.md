@@ -30,7 +30,7 @@ With Homebrew:
 
 ```sh
 brew tap ngriaznov/plugout https://github.com/ngriaznov/plugout
-brew install --cask --no-quarantine plugout
+brew install --cask plugout
 ```
 
 Recent Homebrew versions refuse casks from untrusted taps; if yours does, run
