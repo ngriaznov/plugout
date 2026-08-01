@@ -39,8 +39,7 @@ Recent Homebrew versions refuse casks from untrusted taps; if yours does, run
 Or grab the latest DMG from [Releases](../../releases), open it, and drag plugout
 to Applications.
 
-The app is not code-signed yet. The `--no-quarantine` flag above takes care of
-that; if you install from the DMG instead, the first launch needs either
+The app is not code-signed yet. If you install from the DMG instead, the first launch needs either
 
 ```sh
 xattr -cr /Applications/plugout.app
