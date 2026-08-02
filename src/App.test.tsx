@@ -70,6 +70,31 @@ describe("App integration (mock backend)", () => {
     expect(await screen.findByText(/moved to Trash/, undefined, LONG)).toBeInTheDocument();
   });
 
+  it("row click anchors shift-click range selection (inspect A, shift-click D selects A…D)", async () => {
+    // One setup() session so the held Shift applies to the later click
+    // (static userEvent calls don't share keyboard state).
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText(/plugins$/, undefined, LONG);
+
+    const pluginRows = screen.getAllByRole("row").filter((r) => {
+      const checkbox = within(r).queryByRole("checkbox");
+      return checkbox && checkbox.getAttribute("aria-label") !== "Select all plugins";
+    });
+    expect(pluginRows.length).toBeGreaterThanOrEqual(4);
+
+    // Plain row click opens the inspector AND anchors the range there.
+    await user.click(pluginRows[0]);
+    // Shift-click the 4th row's checkbox: rows 1–4 should all select.
+    await user.keyboard("{Shift>}");
+    await user.click(within(pluginRows[3]).getByRole("checkbox"));
+    await user.keyboard("{/Shift}");
+
+    for (const row of pluginRows.slice(0, 4)) {
+      expect(within(row).getByRole("checkbox")).toBeChecked();
+    }
+  });
+
   it("export with a selection opens the choice modal", async () => {
     render(<App />);
     await screen.findByText(/plugins$/, undefined, LONG);

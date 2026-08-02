@@ -14,6 +14,12 @@ export function useSelection(bundles: PluginBundle[], visible: PluginBundle[], r
       return n;
     });
 
+  // Inspecting a row (plain row click) anchors there without changing the
+  // selection, Finder-style: click row A, then shift-click row F selects A…F.
+  const anchorTo = (p: Plugin) => {
+    anchor.current = { key: p.key, checked: true };
+  };
+
   // Plain click toggles a row and anchors there; shift-click extends the
   // anchor's action across the visible range (see applyRowSelection).
   const togglePlugin = (p: Plugin, shift = false) => {
@@ -45,6 +51,7 @@ export function useSelection(bundles: PluginBundle[], visible: PluginBundle[], r
     toggleInstall,
     togglePlugin,
     toggleAll,
+    anchorTo,
     clear,
     selectedBundles,
     selectedPluginCount,

@@ -275,6 +275,7 @@ export default function App() {
     toggleInstall,
     togglePlugin,
     toggleAll,
+    anchorTo,
     clear,
     selectedBundles,
     selectedPluginCount,
@@ -341,7 +342,11 @@ export default function App() {
               onTogglePlugin={togglePlugin}
               onToggleInstall={toggleInstall}
               onToggleAll={toggleAll}
-              onRowClick={(p) => setInspectedKey((k) => (k === p.key ? null : p.key))}
+              onRowClick={(p) => {
+                // Inspecting a row also anchors shift-click ranges there.
+                anchorTo(p);
+                setInspectedKey((k) => (k === p.key ? null : p.key));
+              }}
               onClearSearch={() => setQuery("")}
               related={related}
               usage={settings.usageScan ? usage : undefined}
