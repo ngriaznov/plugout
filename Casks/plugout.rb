@@ -1,6 +1,6 @@
 cask "plugout" do
-  version "0.4.4"
-  sha256 "0a724f4734a58b0df13e5cb9872044d91e5aa97280e9976e957e1a887e655b32"
+  version "0.4.5"
+  sha256 "d54024aa85752eaa6c9aca40bb0d9fc5b2fceffa427bab37e45750ebfaf1f9aa"
 
   url "https://github.com/ngriaznov/plugout/releases/download/v#{version}/plugout_#{version}_universal.dmg"
   name "plugout"
