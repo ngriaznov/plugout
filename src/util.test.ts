@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatBytes, fmtDate, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage, usageFor } from "./util";
+import { applyRowSelection, formatBytes, fmtDate, mergePlugins, sortPlugins, compareVersions, gateHits, matchUsage, usageFor } from "./util";
 import type { PluginBundle, Format, Scope } from "./types";
 
 describe("formatBytes", () => {
@@ -412,5 +412,49 @@ describe("sortPlugins by usage", () => {
     expect(desc).toEqual(["Gamma", "Alpha", "Beta"]);
     const asc = sortPlugins(plugins, "used", 1, usage).map((p) => p.name);
     expect(asc).toEqual(["Alpha", "Gamma", "Beta"]); // unseen still last
+  });
+});
+
+describe("applyRowSelection", () => {
+  const rows = [
+    { key: "a", ids: ["a1", "a2"] },
+    { key: "b", ids: ["b1"] },
+    { key: "c", ids: ["c1", "c2"] },
+    { key: "d", ids: ["d1"] },
+  ];
+
+  it("plain click toggles the row and sets the anchor", () => {
+    const r1 = applyRowSelection(new Set(), rows, null, "b", false);
+    expect(r1.next).toEqual(new Set(["b1"]));
+    expect(r1.anchor).toEqual({ key: "b", checked: true });
+    const r2 = applyRowSelection(r1.next, rows, r1.anchor, "b", false);
+    expect(r2.next.size).toBe(0);
+    expect(r2.anchor).toEqual({ key: "b", checked: false });
+  });
+
+  it("checks a partially selected row fully before unchecking", () => {
+    const r = applyRowSelection(new Set(["a1"]), rows, null, "a", false);
+    expect(r.next).toEqual(new Set(["a1", "a2"]));
+    expect(r.anchor).toEqual({ key: "a", checked: true });
+  });
+
+  it("shift-click checks the whole range and keeps the anchor", () => {
+    const first = applyRowSelection(new Set(), rows, null, "a", false);
+    const range = applyRowSelection(first.next, rows, first.anchor, "c", true);
+    expect(range.next).toEqual(new Set(["a1", "a2", "b1", "c1", "c2"]));
+    expect(range.anchor).toEqual({ key: "a", checked: true });
+  });
+
+  it("shift-click ranges upward and unchecks when the anchor action was uncheck", () => {
+    const all = new Set(["a1", "a2", "b1", "c1", "c2", "d1"]);
+    const first = applyRowSelection(all, rows, null, "d", false); // unchecks d
+    const range = applyRowSelection(first.next, rows, first.anchor, "b", true);
+    expect(range.next).toEqual(new Set(["a1", "a2"]));
+  });
+
+  it("falls back to a plain toggle when the anchor left the visible list", () => {
+    const r = applyRowSelection(new Set(), rows, { key: "gone", checked: true }, "b", true);
+    expect(r.next).toEqual(new Set(["b1"]));
+    expect(r.anchor).toEqual({ key: "b", checked: true });
   });
 });

@@ -307,3 +307,43 @@ export function usageFor(plugin: Plugin, usage: Map<string, Usage>): Usage | nul
   }
   return null;
 }
+
+export interface SelectionAnchor {
+  key: string;
+  checked: boolean;
+}
+
+interface SelectableRow {
+  key: string;
+  ids: string[];
+}
+
+// Standard shift-click range selection over the visible row order: a plain click
+// toggles a row (checking it unless every install is already selected) and becomes
+// the anchor; a shift-click repeats the anchor's action — check or uncheck — on
+// every row between the anchor and the target. The anchor stays put so further
+// shift-clicks re-extend from it.
+export function applyRowSelection(
+  prev: Set<string>,
+  rows: SelectableRow[],
+  anchor: SelectionAnchor | null,
+  key: string,
+  shift: boolean,
+): { next: Set<string>; anchor: SelectionAnchor } {
+  const next = new Set(prev);
+  const target = rows.findIndex((r) => r.key === key);
+  const from = shift && anchor ? rows.findIndex((r) => r.key === anchor.key) : -1;
+
+  if (anchor && target >= 0 && from >= 0) {
+    const [lo, hi] = from < target ? [from, target] : [target, from];
+    for (let i = lo; i <= hi; i++) {
+      for (const id of rows[i].ids) anchor.checked ? next.add(id) : next.delete(id);
+    }
+    return { next, anchor };
+  }
+
+  const ids = rows[target]?.ids ?? [];
+  const checked = !ids.every((id) => next.has(id));
+  for (const id of ids) checked ? next.add(id) : next.delete(id);
+  return { next, anchor: { key, checked } };
+}

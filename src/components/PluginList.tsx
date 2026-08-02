@@ -12,7 +12,7 @@ interface Props {
   inspectedKey?: string;
   sort: { key: SortKey; dir: SortDir };
   onSort: (key: SortKey) => void;
-  onTogglePlugin: (p: Plugin) => void;
+  onTogglePlugin: (p: Plugin, shift: boolean) => void;
   onToggleInstall: (id: string) => void;
   onToggleAll: () => void;
   onRowClick: (p: Plugin) => void;
@@ -24,19 +24,30 @@ interface Props {
 function TriCheckbox({
   checked,
   indeterminate,
-  onChange,
+  onToggle,
   label,
 }: {
   checked: boolean;
   indeterminate: boolean;
-  onChange: () => void;
+  onToggle: (shift: boolean) => void;
   label: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (ref.current) ref.current.indeterminate = indeterminate;
   }, [indeterminate]);
-  return <input ref={ref} type="checkbox" aria-label={label} checked={checked} onChange={onChange} />;
+  // onClick (not onChange) so the shift modifier is visible; keyboard toggles
+  // still arrive here as synthesized click events.
+  return (
+    <input
+      ref={ref}
+      type="checkbox"
+      aria-label={label}
+      checked={checked}
+      onChange={() => {}}
+      onClick={(e) => onToggle(e.shiftKey)}
+    />
+  );
 }
 
 function SortHeader({
@@ -126,7 +137,7 @@ export function PluginList(p: Props) {
       case "ArrowUp": e.preventDefault(); move(idx - 1); break;
       case "Home": e.preventDefault(); move(0); break;
       case "End": e.preventDefault(); move(allRows.length - 1); break;
-      case " ": e.preventDefault(); p.onTogglePlugin(pl); break;
+      case " ": e.preventDefault(); p.onTogglePlugin(pl, e.shiftKey); break;
       case "Enter": e.preventDefault(); p.onRowClick(pl); break;
     }
   };
@@ -137,7 +148,12 @@ export function PluginList(p: Props) {
       <tr
         key={pl.key}
         className={pl.key === p.inspectedKey ? "sel" : ""}
-        onClick={() => p.onRowClick(pl)}
+        onClick={(e) => {
+          // Modifier clicks select (shift = range, cmd/ctrl = toggle);
+          // a plain click opens the inspector.
+          if (e.shiftKey || e.metaKey || e.ctrlKey) p.onTogglePlugin(pl, e.shiftKey);
+          else p.onRowClick(pl);
+        }}
         onMouseEnter={() => prefetchDetails(pl)}
         tabIndex={pl.key === effectiveActiveKey ? 0 : -1}
         data-key={pl.key}
@@ -149,7 +165,7 @@ export function PluginList(p: Props) {
           <TriCheckbox
             checked={selCount === pl.installs.length}
             indeterminate={selCount > 0 && selCount < pl.installs.length}
-            onChange={() => p.onTogglePlugin(pl)}
+            onToggle={(shift) => p.onTogglePlugin(pl, shift)}
             label={`Select ${pl.name}`}
           />
         </td>
@@ -185,7 +201,7 @@ export function PluginList(p: Props) {
             <TriCheckbox
               checked={allChecked}
               indeterminate={!allChecked && someChecked}
-              onChange={p.onToggleAll}
+              onToggle={() => p.onToggleAll()}
               label="Select all plugins"
             />
           </th>

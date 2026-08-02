@@ -263,9 +263,15 @@ export default function App() {
   const inspected =
     plugins.find((p) => p.key === inspectedKey) ?? related.find((p) => p.key === inspectedKey) ?? null;
 
+  // The table's visual order — main rows then the deduped "Related matches"
+  // section — which shift-click ranges walk across.
+  const rowOrder = useMemo(() => {
+    const shown = new Set(plugins.map((pl) => pl.key));
+    return [...plugins, ...related.filter((pl) => !shown.has(pl.key))];
+  }, [plugins, related]);
+
   const {
     selected,
-    setSelected,
     toggleInstall,
     togglePlugin,
     toggleAll,
@@ -273,7 +279,7 @@ export default function App() {
     selectedBundles,
     selectedPluginCount,
     reclaimable,
-  } = useSelection(bundles, visible);
+  } = useSelection(bundles, visible, rowOrder);
   const failed = results?.filter((r) => r.status === "failed") ?? [];
 
   return (
@@ -357,7 +363,7 @@ export default function App() {
             pluginCount={selectedPluginCount}
             installCount={selected.size}
             sizeBytes={reclaimable}
-            onClear={() => setSelected(new Set())}
+            onClear={clear}
             onRemove={() => setConfirming(true)}
           />
         )}

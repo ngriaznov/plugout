@@ -119,7 +119,18 @@ describe("PluginList row checkbox", () => {
     render(<PluginList {...props} plugins={plugins} />);
     await user.click(screen.getByRole("checkbox", { name: "Select Pigments" }));
     expect(props.onTogglePlugin).toHaveBeenCalledTimes(1);
-    expect(props.onTogglePlugin).toHaveBeenCalledWith(plugins[0]);
+    expect(props.onTogglePlugin).toHaveBeenCalledWith(plugins[0], false);
+  });
+
+  it("passes shift through to onTogglePlugin for range selection", async () => {
+    const user = userEvent.setup();
+    const props = baseProps();
+    const plugins = mergePlugins([mk({ id: "a", name: "Pigments" })]);
+    render(<PluginList {...props} plugins={plugins} />);
+    await user.keyboard("{Shift>}");
+    await user.click(screen.getByRole("checkbox", { name: "Select Pigments" }));
+    await user.keyboard("{/Shift}");
+    expect(props.onTogglePlugin).toHaveBeenCalledWith(plugins[0], true);
   });
 });
 

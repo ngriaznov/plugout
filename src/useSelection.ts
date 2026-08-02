@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Plugin, PluginBundle } from "./types";
+import { applyRowSelection, type SelectionAnchor } from "./util";
 
-export function useSelection(bundles: PluginBundle[], visible: PluginBundle[]) {
+export function useSelection(bundles: PluginBundle[], visible: PluginBundle[], rowOrder: Plugin[]) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Last row a checkbox action landed on — the origin for shift-click ranges.
+  const anchor = useRef<SelectionAnchor | null>(null);
 
   const toggleInstall = (id: string) =>
     setSelected((s) => {
@@ -11,14 +14,14 @@ export function useSelection(bundles: PluginBundle[], visible: PluginBundle[]) {
       return n;
     });
 
-  const togglePlugin = (p: Plugin) =>
-    setSelected((s) => {
-      const n = new Set(s);
-      const ids = p.installs.map((b) => b.id);
-      if (ids.every((id) => n.has(id))) ids.forEach((id) => n.delete(id));
-      else ids.forEach((id) => n.add(id));
-      return n;
-    });
+  // Plain click toggles a row and anchors there; shift-click extends the
+  // anchor's action across the visible range (see applyRowSelection).
+  const togglePlugin = (p: Plugin, shift = false) => {
+    const rows = rowOrder.map((pl) => ({ key: pl.key, ids: pl.installs.map((b) => b.id) }));
+    const result = applyRowSelection(selected, rows, anchor.current, p.key, shift);
+    anchor.current = result.anchor;
+    setSelected(result.next);
+  };
 
   const toggleAll = () =>
     setSelected((s) =>
@@ -27,7 +30,10 @@ export function useSelection(bundles: PluginBundle[], visible: PluginBundle[]) {
         : new Set([...s, ...visible.map((b) => b.id)]),
     );
 
-  const clear = () => setSelected(new Set());
+  const clear = () => {
+    anchor.current = null;
+    setSelected(new Set());
+  };
 
   const selectedBundles = bundles.filter((b) => selected.has(b.id));
   const selectedPluginCount = new Set(selectedBundles.map((b) => `${b.vendor} ${b.name}`)).size;
